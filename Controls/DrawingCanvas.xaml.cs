@@ -42,7 +42,24 @@ namespace VectorEditor.Controls
         public DrawingMode DrawingMode
         {
             get => editor.CurrentMode;
-            set => editor.CurrentMode = value;
+            set 
+            { 
+                // Если меняем режим с Polyline на другой, завершаем ломаную
+                if (editor.CurrentMode == DrawingMode.Polyline && value != DrawingMode.Polyline)
+                {
+                    editor.CompletePolyline();
+                    Render();
+                }
+                
+                // Показываем подсказку при переключении на инструмент ломаной
+                if (value == DrawingMode.Polyline)
+                {
+                    MessageBox.Show("Чтобы завершить создание ломаной линии, дважды щелкните мышью или нажмите Enter", 
+                        "Подсказка", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                
+                editor.CurrentMode = value; 
+            }
         }
 
         public void LoadExampleShapes()
@@ -164,6 +181,12 @@ namespace VectorEditor.Controls
             {
                 // Удаление выбранной фигуры
                 DeleteSelectedShape();
+            }
+            else if (e.Key == Key.Enter && editor.CurrentMode == DrawingMode.Polyline)
+            {
+                // Завершение ломаной по Enter
+                editor.CompletePolyline();
+                Render();
             }
             else if (e.Key == Key.LeftShift || e.Key == Key.RightShift)
             {

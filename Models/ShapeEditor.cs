@@ -25,6 +25,12 @@ namespace VectorEditor.Models
 
         public void StartDrawing(Point position, bool isShiftPressed)
         {
+            // Если режим изменился с Polyline на что-то другое, сбрасываем tempPolyline
+            if (tempPolyline != null && CurrentMode != DrawingMode.Polyline)
+            {
+                CompletePolyline();
+            }
+            
             if (CurrentMode == DrawingMode.Select)
             {
                 // Сбрасываем все редактируемые фигуры
@@ -112,6 +118,8 @@ namespace VectorEditor.Models
             if (CurrentMode == DrawingMode.Polyline)
             {
                 // Если это первая точка или предыдущая ломаная завершена
+                // Строго создаем новую ломаную, если предыдущая не null, значит рисование не было корректно завершено
+                // или мы переключились с другого инструмента
                 if (tempPolyline == null)
                 {
                     tempPolyline = new PolylineShape();
@@ -314,23 +322,24 @@ namespace VectorEditor.Models
 
         public void CompletePolyline()
         {
-            if (CurrentMode != DrawingMode.Polyline || tempPolyline == null) return;
+            if (tempPolyline == null) return;
             
             if (tempPolyline.Points.Count >= 2)
             {
-                // Ломаная уже добавлена в коллекцию
-                tempPolyline = null;
+                // Ломаная уже добавлена в коллекцию, просто отмечаем завершение
+                // и сбрасываем ссылки
                 drawingShape = null;
+                tempPolyline = null;
             }
             else
             {
-                // Если всего одна точка, удаляем 
+                // Если менее двух точек, удаляем неполноценную ломаную
                 if (Shapes.Contains(tempPolyline))
                 {
                     Shapes.Remove(tempPolyline);
                 }
-                tempPolyline = null;
                 drawingShape = null;
+                tempPolyline = null;
             }
         }
 
