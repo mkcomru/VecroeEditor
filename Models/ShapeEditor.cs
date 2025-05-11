@@ -19,6 +19,7 @@ namespace VectorEditor.Models
         private BezierShape? editingBezier;
         private RectangleShape? editingRectangle;
         private EllipseShape? editingEllipse;
+        private LineShape? editingLine;
         
         // Переменная для хранения ломаной во время рисования
         private PolylineShape? tempPolyline;
@@ -37,6 +38,7 @@ namespace VectorEditor.Models
                 editingBezier = null;
                 editingRectangle = null;
                 editingEllipse = null;
+                editingLine = null;
                 
                 // Проверка на выделение или выбор точки кривой Безье
                 Shape? newSelection = Shapes.FirstOrDefault(s => s.Contains(position));
@@ -77,6 +79,18 @@ namespace VectorEditor.Models
                         return;
                     }
                 }
+                else if (SelectedShape is LineShape line && line.IsSelected)
+                {
+                    // Проверяем, не выбран ли маркер изменения размера/поворота линии
+                    bool handleSelected = line.SelectHandle(position);
+                    if (handleSelected && line.SelectedHandle != LineShape.LineHandleType.None)
+                    {
+                        editingLine = line;
+                        isDragging = true;
+                        startPoint = position;
+                        return;
+                    }
+                }
                 
                 // Обычное выделение фигуры
                 SelectedShape = newSelection;
@@ -107,6 +121,10 @@ namespace VectorEditor.Models
                         else if (shape is EllipseShape ellipseShape)
                         {
                             ellipseShape.ClearResizeHandleSelection();
+                        }
+                        else if (shape is LineShape lineShape)
+                        {
+                            lineShape.ClearHandleSelection();
                         }
                     }
                     SelectedShape = null;
@@ -165,6 +183,11 @@ namespace VectorEditor.Models
                 {
                     // Изменение размера эллипса
                     editingEllipse.Resize(position, isShiftPressed);
+                }
+                else if (editingLine != null && editingLine.SelectedHandle != LineShape.LineHandleType.None)
+                {
+                    // Изменение размера/поворот линии
+                    editingLine.ResizeLine(position, isShiftPressed);
                 }
                 else if (SelectedShape != null)
                 {
@@ -302,6 +325,11 @@ namespace VectorEditor.Models
             if (CurrentMode == DrawingMode.Select)
             {
                 isDragging = false;
+                // Применяем финальные изменения при редактировании
+                if (editingLine != null || editingBezier != null || editingRectangle != null || editingEllipse != null)
+                {
+                    ContinueDrawing(position, isShiftPressed);
+                }
                 return;
             }
             

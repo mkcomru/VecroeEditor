@@ -51,10 +51,15 @@ namespace VectorEditor.Controls
                     Render();
                 }
                 
-                // Показываем подсказку при переключении на инструмент ломаной
+                // Показываем подсказки при переключении на инструменты
                 if (value == DrawingMode.Polyline)
                 {
                     MessageBox.Show("Чтобы завершить создание ломаной линии, дважды щелкните мышью или нажмите Enter", 
+                        "Подсказка", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else if (value == DrawingMode.Line)
+                {
+                    MessageBox.Show("После создания линии вы можете выбрать её и изменить длину и угол, перетаскивая маркеры на концах линии. Удерживайте Shift для ограничения угла до 45 градусов.",
                         "Подсказка", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 
@@ -191,6 +196,13 @@ namespace VectorEditor.Controls
             else if (e.Key == Key.LeftShift || e.Key == Key.RightShift)
             {
                 isShiftPressed = true;
+                // Обновляем редактирование, если есть активная операция с зажатым Shift
+                if (editor.CurrentMode == DrawingMode.Select && Mouse.LeftButton == MouseButtonState.Pressed)
+                {
+                    var position = Mouse.GetPosition(this);
+                    editor.ContinueDrawing(position, true);
+                    Render();
+                }
                 e.Handled = true;
             }
         }
@@ -200,6 +212,13 @@ namespace VectorEditor.Controls
             if (e.Key == Key.LeftShift || e.Key == Key.RightShift)
             {
                 isShiftPressed = false;
+                // Обновляем редактирование при отпускании Shift
+                if (editor.CurrentMode == DrawingMode.Select && Mouse.LeftButton == MouseButtonState.Pressed)
+                {
+                    var position = Mouse.GetPosition(this);
+                    editor.ContinueDrawing(position, false);
+                    Render();
+                }
                 e.Handled = true;
             }
         }
