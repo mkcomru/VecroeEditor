@@ -41,7 +41,7 @@ namespace VectorEditor.Models
                 editingLine = null;
                 
                 // Проверка на выделение или выбор точки кривой Безье
-                Shape? newSelection = Shapes.FirstOrDefault(s => s.Contains(position));
+                Shape? newSelection = Shapes.LastOrDefault(s => s.Contains(position));
                 
                 if (SelectedShape is BezierShape bezier && bezier.IsSelected)
                 {

@@ -51,18 +51,6 @@ namespace VectorEditor.Controls
                     Render();
                 }
                 
-                // Показываем подсказки при переключении на инструменты
-                if (value == DrawingMode.Polyline)
-                {
-                    MessageBox.Show("Чтобы завершить создание ломаной линии, дважды щелкните мышью или нажмите Enter", 
-                        "Подсказка", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                else if (value == DrawingMode.Line)
-                {
-                    MessageBox.Show("После создания линии вы можете выбрать её и изменить длину и угол, перетаскивая маркеры на концах линии. Удерживайте Shift для ограничения угла до 45 градусов.",
-                        "Подсказка", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                
                 editor.CurrentMode = value; 
             }
         }
