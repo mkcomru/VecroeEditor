@@ -1,0 +1,72 @@
+﻿<Window x:Class="VectorEditor.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:VectorEditor"
+        xmlns:controls="clr-namespace:VectorEditor.Controls"
+        mc:Ignorable="d"
+        Title="Векторный редактор" Height="600" Width="800"
+        WindowStartupLocation="CenterScreen">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Menu Grid.Row="0">
+            <MenuItem Header="Файл">
+                <MenuItem Header="Новый" Click="NewFile_Click"/>
+                <MenuItem Header="Выход" Click="Exit_Click"/>
+            </MenuItem>
+        </Menu>
+
+        <ToolBarTray Grid.Row="1">
+            <ToolBar>
+                <RadioButton x:Name="SelectButton" Content="Выбрать" IsChecked="True" Checked="SelectButton_Checked"/>
+                <RadioButton x:Name="RectangleButton" Content="Прямоугольник" Checked="RectangleButton_Checked"/>
+                <RadioButton x:Name="EllipseButton" Content="Эллипс" Checked="EllipseButton_Checked"/>
+                <RadioButton x:Name="LineButton" Content="Линия" Checked="LineButton_Checked"/>
+                <RadioButton x:Name="BezierButton" Content="Кривая Безье" Checked="BezierButton_Checked"/>
+                <RadioButton x:Name="PolylineButton" Content="Ломаная" Checked="PolylineButton_Checked"/>
+                <Separator/>
+                <Button Content="Удалить" Click="DeleteButton_Click"/>
+            </ToolBar>
+            <ToolBar>
+                <TextBlock Text="Цвет:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <ComboBox x:Name="FillColorComboBox" Width="70" SelectionChanged="FillColorComboBox_SelectionChanged">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Rectangle Width="16" Height="16" Fill="{Binding}" Margin="0,0,5,0"/>
+                                <TextBlock Text="{Binding}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Text="Цвет границы:" VerticalAlignment="Center" Margin="5,0,5,0"/>
+                <ComboBox x:Name="StrokeColorComboBox" Width="70" SelectionChanged="StrokeColorComboBox_SelectionChanged">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Rectangle Width="16" Height="16" Fill="{Binding}" Margin="0,0,5,0"/>
+                                <TextBlock Text="{Binding}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Text="Толщина:" VerticalAlignment="Center" Margin="5,0,5,0"/>
+                <ComboBox x:Name="ThicknessComboBox" Width="50" SelectionChanged="ThicknessComboBox_SelectionChanged">
+                    <ComboBoxItem Content="1"/>
+                    <ComboBoxItem Content="2"/>
+                    <ComboBoxItem Content="3"/>
+                    <ComboBoxItem Content="4"/>
+                    <ComboBoxItem Content="5"/>
+                </ComboBox>
+            </ToolBar>
+        </ToolBarTray>
+
+        <controls:DrawingCanvas x:Name="DrawingCanvas" Grid.Row="2" Margin="5"/>
+    </Grid>
+</Window>
