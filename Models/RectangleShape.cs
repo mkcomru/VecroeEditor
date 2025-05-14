@@ -1,6 +1,8 @@
 using System;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using VectorEditor.Graphics;
 
 namespace VectorEditor.Models
 {
@@ -151,24 +153,47 @@ namespace VectorEditor.Models
             if (Height < 1) Height = 1;
         }
 
-        public override void Draw(DrawingContext drawingContext)
+        public override void Draw(WriteableBitmap bitmap)
         {
-            var rect = new Rect(Position, new Size(Width, Height));
-            drawingContext.DrawRectangle(Fill, new Pen(Stroke, StrokeThickness), rect);
+            // Рисуем заполненный прямоугольник
+            Color fillColor = GetColorFromBrush(Fill);
+            GraphicsAlgorithms.DrawRectangle(bitmap,
+                (int)Position.X, (int)Position.Y,
+                (int)Width, (int)Height,
+                fillColor, true);
+            
+            // Рисуем контур
+            Color strokeColor = GetColorFromBrush(Stroke);
+            GraphicsAlgorithms.DrawRectangle(bitmap,
+                (int)Position.X, (int)Position.Y,
+                (int)Width, (int)Height,
+                strokeColor, false);
 
             if (IsSelected)
             {
-                drawingContext.DrawRectangle(null, new Pen(Brushes.Blue, 1), rect);
+                // Рисуем контур выделения
+                GraphicsAlgorithms.DrawRectangle(bitmap,
+                    (int)Position.X, (int)Position.Y,
+                    (int)Width, (int)Height,
+                    Colors.Blue, false);
                 
                 // Рисуем маркеры изменения размера
                 foreach (var handle in GetResizeHandles())
                 {
                     bool isSelected = selectedHandle != null && selectedHandle.Type == handle.Type;
-                    var handleRect = new Rect(handle.Position.X - 3, handle.Position.Y - 3, 6, 6);
-                    drawingContext.DrawRectangle(
-                        isSelected ? Brushes.Red : Brushes.Blue, 
-                        new Pen(Brushes.Black, 1), 
-                        handleRect);
+                    
+                    // Заливка маркера
+                    Color handleColor = isSelected ? Colors.Red : Colors.Blue;
+                    GraphicsAlgorithms.DrawRectangle(bitmap,
+                        (int)(handle.Position.X - 3), (int)(handle.Position.Y - 3),
+                        6, 6,
+                        handleColor, true);
+                    
+                    // Контур маркера
+                    GraphicsAlgorithms.DrawRectangle(bitmap,
+                        (int)(handle.Position.X - 3), (int)(handle.Position.Y - 3),
+                        6, 6,
+                        Colors.Black, false);
                 }
             }
         }
@@ -222,11 +247,11 @@ namespace VectorEditor.Models
             return new RectangleShape
             {
                 Position = this.Position,
+                Width = this.Width,
+                Height = this.Height,
                 Fill = this.Fill,
                 Stroke = this.Stroke,
-                StrokeThickness = this.StrokeThickness,
-                Width = this.Width,
-                Height = this.Height
+                StrokeThickness = this.StrokeThickness
             };
         }
     }

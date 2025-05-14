@@ -1,6 +1,8 @@
 using System;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using VectorEditor.Graphics;
 
 namespace VectorEditor.Models
 {
@@ -12,19 +14,44 @@ namespace VectorEditor.Models
         public enum LineHandleType { Start, End, None }
         public LineHandleType SelectedHandle { get; private set; } = LineHandleType.None;
 
-        public override void Draw(DrawingContext drawingContext)
+        public override void Draw(WriteableBitmap bitmap)
         {
-            drawingContext.DrawLine(new Pen(Stroke, StrokeThickness), Position, EndPoint);
+            // Рисуем линию с использованием алгоритма Брезенхема
+            Color strokeColor = GetColorFromBrush(Stroke);
+            
+            // Используем алгоритм Брезенхема для отрисовки линии
+            GraphicsAlgorithms.DrawLine(bitmap, 
+                (int)Position.X, (int)Position.Y, 
+                (int)EndPoint.X, (int)EndPoint.Y, 
+                strokeColor);
 
             if (IsSelected)
             {
                 // Рисуем более заметные маркеры на концах линии
-                var startThumb = new Rect(Position.X - 4, Position.Y - 4, 8, 8);
-                var endThumb = new Rect(EndPoint.X - 4, EndPoint.Y - 4, 8, 8);
+                Color startColor = Colors.LightBlue;
+                Color endColor = Colors.LightGreen;
                 
-                // Используем разные цвета для начальной и конечной точек
-                drawingContext.DrawRectangle(Brushes.LightBlue, new Pen(Brushes.Blue, 1), startThumb);
-                drawingContext.DrawRectangle(Brushes.LightGreen, new Pen(Brushes.Green, 1), endThumb);
+                // Рисуем маркеры используя наш алгоритм DrawRectangle
+                GraphicsAlgorithms.DrawRectangle(bitmap,
+                    (int)(Position.X - 4), (int)(Position.Y - 4),
+                    8, 8,
+                    startColor, true);
+                
+                GraphicsAlgorithms.DrawRectangle(bitmap,
+                    (int)(EndPoint.X - 4), (int)(EndPoint.Y - 4),
+                    8, 8,
+                    endColor, true);
+                
+                // Рисуем контур маркеров
+                GraphicsAlgorithms.DrawRectangle(bitmap,
+                    (int)(Position.X - 4), (int)(Position.Y - 4),
+                    8, 8,
+                    Colors.Blue, false);
+                
+                GraphicsAlgorithms.DrawRectangle(bitmap,
+                    (int)(EndPoint.X - 4), (int)(EndPoint.Y - 4),
+                    8, 8,
+                    Colors.Green, false);
             }
         }
 

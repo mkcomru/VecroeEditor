@@ -1,183 +1,189 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using VectorEditor.Graphics;
 
 namespace VectorEditor.Models
 {
     public class BezierShape : Shape
     {
+        public Point EndPoint { get; set; }
         public Point ControlPoint1 { get; set; }
         public Point ControlPoint2 { get; set; }
-        public Point EndPoint { get; set; }
         
-        private int? selectedPointIndex = null;
+        private BezierPointType selectedPointType = BezierPointType.None;
         
-        public void SelectPoint(Point point)
+        public enum BezierPointType
         {
-            const double threshold = 10.0;
-            var points = new[] { Position, ControlPoint1, ControlPoint2, EndPoint };
-            
-            for (int i = 0; i < points.Length; i++)
-            {
-                double distance = CalculateDistance(point, points[i]);
-                if (distance <= threshold)
-                {
-                    selectedPointIndex = i;
-                    return;
-                }
-            }
-            
-            selectedPointIndex = null;
+            None,
+            Start,
+            End,
+            Control1,
+            Control2
         }
         
-        public void MoveSelectedPoint(Point newPosition)
-        {
-            if (!selectedPointIndex.HasValue) return;
-            
-            switch (selectedPointIndex.Value)
-            {
-                case 0: Position = newPosition; break;
-                case 1: ControlPoint1 = newPosition; break;
-                case 2: ControlPoint2 = newPosition; break;
-                case 3: EndPoint = newPosition; break;
-            }
-        }
-        
-        public bool HasSelectedPoint => selectedPointIndex.HasValue;
-        
-        public void ClearPointSelection()
-        {
-            selectedPointIndex = null;
-        }
-        
-        private double CalculateDistance(Point p1, Point p2)
-        {
-            return Math.Sqrt(Math.Pow(p2.X - p1.X, 2) + Math.Pow(p2.Y - p1.Y, 2));
-        }
+        public bool HasSelectedPoint => selectedPointType != BezierPointType.None;
 
-        public override void Draw(DrawingContext drawingContext)
+        public override void Draw(WriteableBitmap bitmap)
         {
-            var geometry = new StreamGeometry();
-            using (StreamGeometryContext context = geometry.Open())
-            {
-                context.BeginFigure(Position, false, false);
-                context.BezierTo(ControlPoint1, ControlPoint2, EndPoint, true, false);
-            }
-
-            drawingContext.DrawGeometry(null, new Pen(Stroke, StrokeThickness), geometry);
+            Color strokeColor = GetColorFromBrush(Stroke);
+            
+            // Рисуем кривую Безье
+            GraphicsAlgorithms.DrawBezier(bitmap, Position, ControlPoint1, ControlPoint2, EndPoint, strokeColor);
             
             if (IsSelected)
             {
-                // Нарисуем управляющие точки и линии к ним
-                drawingContext.DrawLine(new Pen(Brushes.Gray, 1), Position, ControlPoint1);
-                drawingContext.DrawLine(new Pen(Brushes.Gray, 1), EndPoint, ControlPoint2);
+                // Рисуем маркеры для каждой точки кривой
+                DrawControlPoint(bitmap, Position, selectedPointType == BezierPointType.Start);
+                DrawControlPoint(bitmap, EndPoint, selectedPointType == BezierPointType.End);
                 
-                var points = new[] { Position, ControlPoint1, ControlPoint2, EndPoint };
-                for (int i = 0; i < points.Length; i++)
-                {
-                    var point = points[i];
-                    bool isSelected = selectedPointIndex.HasValue && selectedPointIndex.Value == i;
+                // Рисуем контрольные точки и соединяющие линии
+                GraphicsAlgorithms.DrawLine(bitmap, 
+                    (int)Position.X, (int)Position.Y, 
+                    (int)ControlPoint1.X, (int)ControlPoint1.Y, 
+                    Colors.Gray);
                     
-                    var thumbRect = new Rect(point.X - 3, point.Y - 3, 6, 6);
-                    Brush fillBrush = isSelected ? Brushes.Red : 
-                                     (i == 0 || i == 3) ? Brushes.Blue : Brushes.Green;
-                    
-                    drawingContext.DrawRectangle(
-                        fillBrush, 
-                        new Pen(Brushes.Black, 1), 
-                        thumbRect);
-                }
+                GraphicsAlgorithms.DrawLine(bitmap, 
+                    (int)EndPoint.X, (int)EndPoint.Y, 
+                    (int)ControlPoint2.X, (int)ControlPoint2.Y, 
+                    Colors.Gray);
+                
+                DrawControlPoint(bitmap, ControlPoint1, selectedPointType == BezierPointType.Control1, true);
+                DrawControlPoint(bitmap, ControlPoint2, selectedPointType == BezierPointType.Control2, true);
             }
+        }
+        
+        private void DrawControlPoint(WriteableBitmap bitmap, Point point, bool isSelected, bool isControlPoint = false)
+        {
+            Color fillColor = isControlPoint 
+                ? (isSelected ? Colors.Yellow : Colors.LightYellow)
+                : (isSelected ? Colors.Red : Colors.Blue);
+                
+            GraphicsAlgorithms.DrawRectangle(bitmap,
+                (int)(point.X - 3), (int)(point.Y - 3),
+                6, 6,
+                fillColor, true);
+                
+            GraphicsAlgorithms.DrawRectangle(bitmap,
+                (int)(point.X - 3), (int)(point.Y - 3),
+                6, 6,
+                Colors.Black, false);
         }
 
         public override bool Contains(Point point)
         {
             const double threshold = 5.0;
-            const int steps = 30;
+            const int segments = 50; // Количество сегментов для аппроксимации кривой
             
-            // Проверка на совпадение с контрольными точками
-            var controlPoints = new[] { Position, ControlPoint1, ControlPoint2, EndPoint };
-            foreach (var cp in controlPoints)
+            Point prev = Position;
+            
+            for (int i = 1; i <= segments; i++)
             {
-                if (Math.Sqrt(Math.Pow(cp.X - point.X, 2) + Math.Pow(cp.Y - point.Y, 2)) <= threshold)
+                double t = (double)i / segments;
+                double u = 1 - t;
+                double tt = t * t;
+                double uu = u * u;
+                double uuu = uu * u;
+                double ttt = tt * t;
+                
+                double x = uuu * Position.X + 3 * uu * t * ControlPoint1.X + 3 * u * tt * ControlPoint2.X + ttt * EndPoint.X;
+                double y = uuu * Position.Y + 3 * uu * t * ControlPoint1.Y + 3 * u * tt * ControlPoint2.Y + ttt * EndPoint.Y;
+                
+                Point current = new Point(x, y);
+                
+                // Проверяем расстояние до текущего сегмента
+                double length = Math.Sqrt(Math.Pow(current.X - prev.X, 2) + Math.Pow(current.Y - prev.Y, 2));
+                if (length == 0)
                 {
-                    return true;
+                    prev = current;
+                    continue;
                 }
-            }
-            
-            // Аппроксимация кривой линейными сегментами
-            for (int i = 0; i < steps; i++)
-            {
-                double t1 = (double)i / steps;
-                double t2 = (double)(i + 1) / steps;
-                
-                Point p1 = CalculateBezierPoint(t1);
-                Point p2 = CalculateBezierPoint(t2);
-                
-                double length = Math.Sqrt(Math.Pow(p2.X - p1.X, 2) + Math.Pow(p2.Y - p1.Y, 2));
-                if (length == 0) continue;
 
-                double distance = Math.Abs((p2.Y - p1.Y) * point.X - 
-                    (p2.X - p1.X) * point.Y + 
-                    p2.X * p1.Y - 
-                    p2.Y * p1.X) / length;
+                double distance = Math.Abs((current.Y - prev.Y) * point.X - 
+                    (current.X - prev.X) * point.Y + 
+                    current.X * prev.Y - 
+                    current.Y * prev.X) / length;
 
                 // Проверяем, находится ли точка между началом и концом сегмента
-                double dotProduct = ((point.X - p1.X) * (p2.X - p1.X) + 
-                                    (point.Y - p1.Y) * (p2.Y - p1.Y)) / (length * length);
+                double dotProduct = ((point.X - prev.X) * (current.X - prev.X) + 
+                                    (point.Y - prev.Y) * (current.Y - prev.Y)) / (length * length);
 
                 if (distance <= threshold && dotProduct >= 0 && dotProduct <= 1)
                 {
                     return true;
                 }
+                
+                prev = current;
             }
             
             return false;
         }
-
-        private Point CalculateBezierPoint(double t)
+        
+        public bool SelectPoint(Point point)
         {
-            double u = 1 - t;
-            double tt = t * t;
-            double uu = u * u;
-            double uuu = uu * u;
-            double ttt = tt * t;
+            const double threshold = 10.0;
             
-            double x = uuu * Position.X + 
-                      3 * uu * t * ControlPoint1.X + 
-                      3 * u * tt * ControlPoint2.X + 
-                      ttt * EndPoint.X;
-                      
-            double y = uuu * Position.Y + 
-                      3 * uu * t * ControlPoint1.Y + 
-                      3 * u * tt * ControlPoint2.Y + 
-                      ttt * EndPoint.Y;
-                      
-            return new Point(x, y);
+            if (Distance(point, Position) <= threshold)
+            {
+                selectedPointType = BezierPointType.Start;
+                return true;
+            }
+            if (Distance(point, EndPoint) <= threshold)
+            {
+                selectedPointType = BezierPointType.End;
+                return true;
+            }
+            if (Distance(point, ControlPoint1) <= threshold)
+            {
+                selectedPointType = BezierPointType.Control1;
+                return true;
+            }
+            if (Distance(point, ControlPoint2) <= threshold)
+            {
+                selectedPointType = BezierPointType.Control2;
+                return true;
+            }
+            
+            selectedPointType = BezierPointType.None;
+            return false;
+        }
+        
+        public void MoveSelectedPoint(Point newPosition)
+        {
+            switch (selectedPointType)
+            {
+                case BezierPointType.Start:
+                    Position = newPosition;
+                    break;
+                case BezierPointType.End:
+                    EndPoint = newPosition;
+                    break;
+                case BezierPointType.Control1:
+                    ControlPoint1 = newPosition;
+                    break;
+                case BezierPointType.Control2:
+                    ControlPoint2 = newPosition;
+                    break;
+            }
+        }
+        
+        public void ClearPointSelection()
+        {
+            selectedPointType = BezierPointType.None;
+        }
+        
+        private double Distance(Point p1, Point p2)
+        {
+            return Math.Sqrt(Math.Pow(p2.X - p1.X, 2) + Math.Pow(p2.Y - p1.Y, 2));
         }
 
         public override void Move(Vector delta)
         {
-            if (selectedPointIndex.HasValue)
-            {
-                MoveSelectedPoint(new Point(
-                    (selectedPointIndex.Value == 0 ? Position.X : 
-                     selectedPointIndex.Value == 1 ? ControlPoint1.X : 
-                     selectedPointIndex.Value == 2 ? ControlPoint2.X : EndPoint.X) + delta.X,
-                    (selectedPointIndex.Value == 0 ? Position.Y : 
-                     selectedPointIndex.Value == 1 ? ControlPoint1.Y : 
-                     selectedPointIndex.Value == 2 ? ControlPoint2.Y : EndPoint.Y) + delta.Y
-                ));
-            }
-            else
-            {
-                Position = new Point(Position.X + delta.X, Position.Y + delta.Y);
-                ControlPoint1 = new Point(ControlPoint1.X + delta.X, ControlPoint1.Y + delta.Y);
-                ControlPoint2 = new Point(ControlPoint2.X + delta.X, ControlPoint2.Y + delta.Y);
-                EndPoint = new Point(EndPoint.X + delta.X, EndPoint.Y + delta.Y);
-            }
+            Position = new Point(Position.X + delta.X, Position.Y + delta.Y);
+            EndPoint = new Point(EndPoint.X + delta.X, EndPoint.Y + delta.Y);
+            ControlPoint1 = new Point(ControlPoint1.X + delta.X, ControlPoint1.Y + delta.Y);
+            ControlPoint2 = new Point(ControlPoint2.X + delta.X, ControlPoint2.Y + delta.Y);
         }
 
         public override Shape Clone()
@@ -185,9 +191,9 @@ namespace VectorEditor.Models
             return new BezierShape
             {
                 Position = this.Position,
+                EndPoint = this.EndPoint,
                 ControlPoint1 = this.ControlPoint1,
                 ControlPoint2 = this.ControlPoint2,
-                EndPoint = this.EndPoint,
                 Stroke = this.Stroke,
                 StrokeThickness = this.StrokeThickness
             };

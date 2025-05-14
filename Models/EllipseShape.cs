@@ -1,6 +1,8 @@
 using System;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using VectorEditor.Graphics;
 
 namespace VectorEditor.Models
 {
@@ -104,26 +106,47 @@ namespace VectorEditor.Models
             if (RadiusY < 1) RadiusY = 1;
         }
 
-        public override void Draw(DrawingContext drawingContext)
+        public override void Draw(WriteableBitmap bitmap)
         {
-            drawingContext.DrawEllipse(Fill, new Pen(Stroke, StrokeThickness), Position, RadiusX, RadiusY);
+            // Рисуем заполненный эллипс
+            Color fillColor = GetColorFromBrush(Fill);
+            GraphicsAlgorithms.DrawEllipse(bitmap,
+                (int)Position.X, (int)Position.Y,
+                (int)RadiusX, (int)RadiusY,
+                fillColor, true);
+            
+            // Рисуем контур
+            Color strokeColor = GetColorFromBrush(Stroke);
+            GraphicsAlgorithms.DrawEllipse(bitmap,
+                (int)Position.X, (int)Position.Y,
+                (int)RadiusX, (int)RadiusY,
+                strokeColor, false);
 
             if (IsSelected)
             {
-                var rect = new Rect(
-                    Position.X - RadiusX, Position.Y - RadiusY,
-                    RadiusX * 2, RadiusY * 2);
-                drawingContext.DrawRectangle(null, new Pen(Brushes.Blue, 1), rect);
+                // Рисуем прямоугольную область выделения
+                GraphicsAlgorithms.DrawRectangle(bitmap,
+                    (int)(Position.X - RadiusX), (int)(Position.Y - RadiusY),
+                    (int)(RadiusX * 2), (int)(RadiusY * 2),
+                    Colors.Blue, false);
                 
                 // Рисуем маркеры изменения размера
                 foreach (var handle in GetResizeHandles())
                 {
                     bool isSelected = selectedHandle != null && selectedHandle.Type == handle.Type;
-                    var handleRect = new Rect(handle.Position.X - 3, handle.Position.Y - 3, 6, 6);
-                    drawingContext.DrawRectangle(
-                        isSelected ? Brushes.Red : Brushes.Blue, 
-                        new Pen(Brushes.Black, 1), 
-                        handleRect);
+                    
+                    // Заливка маркера
+                    Color handleColor = isSelected ? Colors.Red : Colors.Blue;
+                    GraphicsAlgorithms.DrawRectangle(bitmap,
+                        (int)(handle.Position.X - 3), (int)(handle.Position.Y - 3),
+                        6, 6,
+                        handleColor, true);
+                    
+                    // Контур маркера
+                    GraphicsAlgorithms.DrawRectangle(bitmap,
+                        (int)(handle.Position.X - 3), (int)(handle.Position.Y - 3),
+                        6, 6,
+                        Colors.Black, false);
                 }
             }
         }

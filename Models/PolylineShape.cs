@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using VectorEditor.Graphics;
 
 namespace VectorEditor.Models
 {
@@ -10,25 +12,28 @@ namespace VectorEditor.Models
     {
         public List<Point> Points { get; set; } = new List<Point>();
 
-        public override void Draw(DrawingContext drawingContext)
+        public override void Draw(WriteableBitmap bitmap)
         {
             if (Points.Count < 2) return;
 
-            var geometry = new StreamGeometry();
-            using (var context = geometry.Open())
-            {
-                context.BeginFigure(Points[0], false, false);
-                context.PolyLineTo(Points.Skip(1).ToList(), true, false);
-            }
-
-            drawingContext.DrawGeometry(null, new Pen(Stroke, StrokeThickness), geometry);
+            // Рисуем ломаную линию
+            Color strokeColor = GetColorFromBrush(Stroke);
+            GraphicsAlgorithms.DrawPolyline(bitmap, Points, strokeColor);
             
             if (IsSelected)
             {
                 foreach (var point in Points)
                 {
-                    var thumbRect = new Rect(point.X - 3, point.Y - 3, 6, 6);
-                    drawingContext.DrawRectangle(Brushes.Blue, new Pen(Brushes.Blue, 1), thumbRect);
+                    // Рисуем маркеры в каждой точке ломаной
+                    GraphicsAlgorithms.DrawRectangle(bitmap,
+                        (int)(point.X - 3), (int)(point.Y - 3),
+                        6, 6,
+                        Colors.Blue, true);
+                    
+                    GraphicsAlgorithms.DrawRectangle(bitmap,
+                        (int)(point.X - 3), (int)(point.Y - 3),
+                        6, 6,
+                        Colors.Black, false);
                 }
             }
         }

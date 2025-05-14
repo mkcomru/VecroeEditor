@@ -5,14 +5,14 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using VectorEditor.Models;
+using VectorEditor.Graphics;
 
 namespace VectorEditor.Controls
 {
     public partial class DrawingCanvas : UserControl
     {
         private readonly ShapeEditor editor;
-        private readonly DrawingVisual drawingVisual;
-        private RenderTargetBitmap? renderBitmap;
+        private WriteableBitmap? drawingBitmap;
         private bool isShiftPressed = false;
         
         public event EventHandler<Shape>? ShapeSelected;
@@ -22,7 +22,6 @@ namespace VectorEditor.Controls
             InitializeComponent();
             
             editor = new ShapeEditor();
-            drawingVisual = new DrawingVisual();
             
             // Регистрируем обработчики событий
             Loaded += OnLoaded;
@@ -104,15 +103,15 @@ namespace VectorEditor.Controls
         {
             try
             {
-                // Создаем RenderTargetBitmap после инициализации размеров
+                // Создаем WriteableBitmap после инициализации размеров
                 int width = Math.Max(1, (int)ActualWidth);
                 int height = Math.Max(1, (int)ActualHeight);
                 
-                renderBitmap = new RenderTargetBitmap(
+                drawingBitmap = new WriteableBitmap(
                     width, height, 
-                    96, 96, PixelFormats.Pbgra32);
+                    96, 96, PixelFormats.Pbgra32, null);
                 
-                DrawingImage.Source = renderBitmap;
+                CanvasImage.Source = drawingBitmap;
                 Render();
             }
             catch (Exception ex)
@@ -213,22 +212,34 @@ namespace VectorEditor.Controls
 
         private void Render()
         {
-            if (renderBitmap == null) return;
+            if (drawingBitmap == null) return;
 
-            using (var dc = drawingVisual.RenderOpen())
+            // Очищаем bitmap
+            drawingBitmap.Lock();
+            
+            try 
             {
-                // Очищаем холст
-                dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, ActualWidth, ActualHeight));
+                // Заполняем белым цветом
+                GraphicsAlgorithms.DrawRectangle(
+                    drawingBitmap, 
+                    0, 0, 
+                    drawingBitmap.PixelWidth, drawingBitmap.PixelHeight, 
+                    Colors.White, true);
                 
                 // Рисуем все фигуры
                 foreach (var shape in editor.Shapes)
                 {
-                    shape.Draw(dc);
+                    shape.Draw(drawingBitmap);
                 }
             }
-            
-            renderBitmap.Render(drawingVisual);
-            DrawingImage.Source = renderBitmap;
+            finally 
+            {
+                drawingBitmap.Unlock();
+                
+                // Не нужно вызывать AddDirtyRect после разблокировки, 
+                // так как все алгоритмы рисования уже вызывают его.
+                // drawingBitmap.AddDirtyRect(new Int32Rect(0, 0, drawingBitmap.PixelWidth, drawingBitmap.PixelHeight));
+            }
         }
 
         protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
@@ -239,19 +250,13 @@ namespace VectorEditor.Controls
             {
                 if (sizeInfo.NewSize.Width > 0 && sizeInfo.NewSize.Height > 0)
                 {
-                    var newBitmap = new RenderTargetBitmap(
+                    drawingBitmap = new WriteableBitmap(
                         (int)sizeInfo.NewSize.Width, 
                         (int)sizeInfo.NewSize.Height, 
-                        96, 96, PixelFormats.Pbgra32);
+                        96, 96, PixelFormats.Pbgra32, null);
                     
-                    DrawingImage.Source = newBitmap;
-                    
-                    if (drawingVisual != null)
-                    {
-                        newBitmap.Render(drawingVisual);
-                    }
-
-                    renderBitmap = newBitmap;
+                    CanvasImage.Source = drawingBitmap;
+                    Render();
                 }
             }
             catch (Exception ex)
