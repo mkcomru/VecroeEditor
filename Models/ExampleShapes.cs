@@ -67,6 +67,21 @@ namespace VectorEditor.Models
             polyline.Points.Add(new Point(300, 330));
             examples.Add(polyline);
             
+            // Замкнутая ломаная с заливкой
+            var closedPolyline = new PolylineShape
+            {
+                Position = new Point(500, 300),
+                Stroke = Brushes.DarkBlue,
+                Fill = Brushes.LightBlue,
+                StrokeThickness = 2,
+                IsClosed = true
+            };
+            closedPolyline.Points.Add(new Point(500, 300));
+            closedPolyline.Points.Add(new Point(550, 250));
+            closedPolyline.Points.Add(new Point(600, 300));
+            closedPolyline.Points.Add(new Point(550, 350));
+            examples.Add(closedPolyline);
+            
             // Многоугольник
             examples.Add(new PolygonShape
             {

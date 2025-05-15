@@ -11,14 +11,41 @@ namespace VectorEditor.Models
     public class PolylineShape : Shape
     {
         public List<Point> Points { get; set; } = new List<Point>();
+        
+        // Флаг, указывающий, является ли ломаная замкнутой фигурой
+        public bool IsClosed { get; set; } = false;
 
         public override void Draw(WriteableBitmap bitmap)
         {
             if (Points.Count < 2) return;
 
+            // Рисуем заливку, если фигура замкнута
+            if (IsClosed && Points.Count >= 3)
+            {
+                Color fillColor = GetColorFromBrush(Fill);
+                GraphicsAlgorithms.DrawFilledPolygon(bitmap, Points.ToArray(), fillColor);
+            }
+
             // Рисуем ломаную линию
             Color strokeColor = GetColorFromBrush(Stroke);
-            GraphicsAlgorithms.DrawPolyline(bitmap, Points, strokeColor);
+            
+            if (IsClosed && Points.Count >= 2)
+            {
+                // Рисуем замкнутый контур
+                for (int i = 0; i < Points.Count; i++)
+                {
+                    int nextIndex = (i + 1) % Points.Count;
+                    GraphicsAlgorithms.DrawLine(bitmap, 
+                        (int)Points[i].X, (int)Points[i].Y, 
+                        (int)Points[nextIndex].X, (int)Points[nextIndex].Y,
+                        strokeColor);
+                }
+            }
+            else
+            {
+                // Рисуем открытую ломаную
+                GraphicsAlgorithms.DrawPolyline(bitmap, Points, strokeColor);
+            }
             
             if (IsSelected)
             {
@@ -42,12 +69,23 @@ namespace VectorEditor.Models
         {
             if (Points.Count < 2) return false;
 
+            // Если фигура замкнута и имеет заливку, проверяем, находится ли точка внутри многоугольника
+            if (IsClosed && Points.Count >= 3)
+            {
+                if (IsPointInPolygon(point, Points.ToArray()))
+                {
+                    return true;
+                }
+            }
+
             const double threshold = 5.0;
             
-            for (int i = 0; i < Points.Count - 1; i++)
+            // Проверяем близость к контуру
+            int lastIndex = IsClosed ? Points.Count : Points.Count - 1;
+            for (int i = 0; i < lastIndex; i++)
             {
                 Point p1 = Points[i];
-                Point p2 = Points[i + 1];
+                Point p2 = Points[(i + 1) % Points.Count];
 
                 double length = Math.Sqrt(Math.Pow(p2.X - p1.X, 2) + Math.Pow(p2.Y - p1.Y, 2));
                 if (length == 0) continue;
@@ -69,6 +107,41 @@ namespace VectorEditor.Models
             
             return false;
         }
+        
+        // Метод для проверки, находится ли точка внутри многоугольника
+        private bool IsPointInPolygon(Point point, Point[] polygon)
+        {
+            if (polygon.Length < 3) return false;
+            
+            int i, j;
+            bool result = false;
+            for (i = 0, j = polygon.Length - 1; i < polygon.Length; j = i++)
+            {
+                if ((polygon[i].Y > point.Y) != (polygon[j].Y > point.Y) &&
+                    (point.X < (polygon[j].X - polygon[i].X) * (point.Y - polygon[i].Y) / 
+                    (polygon[j].Y - polygon[i].Y) + polygon[i].X))
+                {
+                    result = !result;
+                }
+            }
+            
+            return result;
+        }
+
+        // Метод для замыкания ломаной линии
+        public void Close()
+        {
+            if (Points.Count >= 3)
+            {
+                IsClosed = true;
+            }
+        }
+        
+        // Метод для размыкания ломаной линии
+        public void Open()
+        {
+            IsClosed = false;
+        }
 
         public override void Move(Vector delta)
         {
@@ -86,8 +159,10 @@ namespace VectorEditor.Models
             {
                 Position = this.Position,
                 Stroke = this.Stroke,
+                Fill = this.Fill,
                 StrokeThickness = this.StrokeThickness,
-                Points = this.Points.Select(p => new Point(p.X, p.Y)).ToList()
+                Points = this.Points.Select(p => new Point(p.X, p.Y)).ToList(),
+                IsClosed = this.IsClosed
             };
         }
     }

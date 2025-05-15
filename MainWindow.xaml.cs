@@ -163,6 +163,22 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ClosePolylineButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (DrawingCanvas != null)
+        {
+            DrawingCanvas.ClosePolyline();
+        }
+    }
+
+    private void OpenPolylineButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (DrawingCanvas != null)
+        {
+            DrawingCanvas.OpenPolyline();
+        }
+    }
+
     private void NewFile_Click(object sender, RoutedEventArgs e)
     {
         // Здесь можно реализовать создание нового файла

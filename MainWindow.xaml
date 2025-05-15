@@ -33,6 +33,9 @@
                 <RadioButton x:Name="PolygonButton" Content="Многоугольник" Checked="PolygonButton_Checked"/>
                 <Separator/>
                 <Button Content="Удалить" Click="DeleteButton_Click"/>
+                <Separator/>
+                <Button Content="Замкнуть ломаную" Click="ClosePolylineButton_Click"/>
+                <Button Content="Разомкнуть ломаную" Click="OpenPolylineButton_Click"/>
             </ToolBar>
             <ToolBar>
                 <TextBlock Text="Цвет:" VerticalAlignment="Center" Margin="0,0,5,0"/>

@@ -99,6 +99,18 @@ namespace VectorEditor.Controls
             Render();
         }
 
+        public void ClosePolyline()
+        {
+            editor.CloseSelectedPolyline();
+            Render();
+        }
+
+        public void OpenPolyline()
+        {
+            editor.OpenSelectedPolyline();
+            Render();
+        }
+
         public void DeleteSelectedShape()
         {
             editor.DeleteSelectedShape();

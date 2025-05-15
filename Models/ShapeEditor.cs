@@ -497,6 +497,22 @@ namespace VectorEditor.Models
             }
         }
 
+        public void CloseSelectedPolyline()
+        {
+            if (SelectedShape is PolylineShape polyline && polyline.Points.Count >= 3)
+            {
+                polyline.Close();
+            }
+        }
+        
+        public void OpenSelectedPolyline()
+        {
+            if (SelectedShape is PolylineShape polyline)
+            {
+                polyline.Open();
+            }
+        }
+
         public void DeleteSelectedShape()
         {
             if (SelectedShape != null)
