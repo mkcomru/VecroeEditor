@@ -25,6 +25,7 @@ public partial class MainWindow : Window
             FillColorComboBox.SelectedIndex = 0;  // Белый
             StrokeColorComboBox.SelectedIndex = 1;  // Черный
             ThicknessComboBox.SelectedIndex = 0;  // 1
+            PolygonSidesComboBox.SelectedIndex = 2;  // 5 углов по умолчанию
             
             // Добавляем обработчик закрытия окна
             Closing += MainWindow_Closing;
@@ -114,6 +115,12 @@ public partial class MainWindow : Window
             DrawingCanvas.DrawingMode = DrawingMode.Polyline;
     }
 
+    private void PolygonButton_Checked(object sender, RoutedEventArgs e)
+    {
+        if (DrawingCanvas != null)
+            DrawingCanvas.DrawingMode = DrawingMode.Polygon;
+    }
+
     private void DeleteButton_Click(object sender, RoutedEventArgs e)
     {
         if (DrawingCanvas != null)
@@ -143,6 +150,16 @@ public partial class MainWindow : Window
             DrawingCanvas != null)
         {
             DrawingCanvas.ChangeStrokeThickness(thickness);
+        }
+    }
+
+    private void PolygonSidesComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (PolygonSidesComboBox.SelectedItem is ComboBoxItem item && 
+            int.TryParse(item.Content.ToString(), out int sides) &&
+            DrawingCanvas != null)
+        {
+            DrawingCanvas.ChangePolygonSides(sides);
         }
     }
 

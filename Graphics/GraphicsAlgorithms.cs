@@ -512,5 +512,97 @@ namespace VectorEditor.Graphics
                 }
             }
         }
+
+        /// <summary>
+        /// Отрисовка заполненного многоугольника с использованием алгоритма сканирующей строки
+        /// </summary>
+        public static void DrawFilledPolygon(WriteableBitmap bitmap, Point[] points, Color fillColor)
+        {
+            if (points.Length < 3) return;
+            
+            bitmap.Lock();
+            
+            try
+            {
+                // Находим минимальную и максимальную Y-координату
+                int minY = int.MaxValue;
+                int maxY = int.MinValue;
+                
+                foreach (var point in points)
+                {
+                    minY = Math.Min(minY, (int)point.Y);
+                    maxY = Math.Max(maxY, (int)point.Y);
+                }
+                
+                // Ограничиваем координаты размерами bitmap
+                minY = Math.Max(0, minY);
+                maxY = Math.Min(bitmap.PixelHeight - 1, maxY);
+                
+                // Для каждой строки сканирования
+                for (int y = minY; y <= maxY; y++)
+                {
+                    // Список пересечений сканирующей строки с рёбрами многоугольника
+                    var intersections = new List<int>();
+                    
+                    // Проверяем каждое ребро многоугольника
+                    for (int i = 0; i < points.Length; i++)
+                    {
+                        int j = (i + 1) % points.Length;
+                        
+                        int y1 = (int)points[i].Y;
+                        int y2 = (int)points[j].Y;
+                        
+                        // Если ребро пересекает текущую строку сканирования
+                        if ((y1 <= y && y2 > y) || (y2 <= y && y1 > y))
+                        {
+                            // Вычисляем x-координату пересечения
+                            int x1 = (int)points[i].X;
+                            int x2 = (int)points[j].X;
+                            
+                            // Линейная интерполяция для нахождения x-координаты пересечения
+                            int x = x1 + (y - y1) * (x2 - x1) / (y2 - y1);
+                            
+                            intersections.Add(x);
+                        }
+                    }
+                    
+                    // Сортируем пересечения по возрастанию x-координаты
+                    intersections.Sort();
+                    
+                    // Заполняем пиксели между парами пересечений
+                    for (int i = 0; i < intersections.Count; i += 2)
+                    {
+                        if (i + 1 < intersections.Count)
+                        {
+                            int startX = Math.Max(0, intersections[i]);
+                            int endX = Math.Min(bitmap.PixelWidth - 1, intersections[i + 1]);
+                            
+                            // Заполняем пиксели в текущем отрезке
+                            for (int x = startX; x <= endX; x++)
+                            {
+                                unsafe
+                                {
+                                    IntPtr pBackBuffer = bitmap.BackBuffer;
+                                    int stride = bitmap.BackBufferStride;
+                                    int pixelOffset = y * stride + x * 4;
+                                    byte* pPixel = (byte*)pBackBuffer + pixelOffset;
+                                    
+                                    pPixel[0] = fillColor.B;
+                                    pPixel[1] = fillColor.G;
+                                    pPixel[2] = fillColor.R;
+                                    pPixel[3] = fillColor.A;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                bitmap.AddDirtyRect(new Int32Rect(0, 0, bitmap.PixelWidth, bitmap.PixelHeight));
+            }
+            finally
+            {
+                bitmap.Unlock();
+            }
+        }
     }
 } 

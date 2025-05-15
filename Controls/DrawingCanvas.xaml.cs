@@ -93,6 +93,12 @@ namespace VectorEditor.Controls
             Render();
         }
 
+        public void ChangePolygonSides(int sides)
+        {
+            editor.ChangePolygonSides(sides);
+            Render();
+        }
+
         public void DeleteSelectedShape()
         {
             editor.DeleteSelectedShape();

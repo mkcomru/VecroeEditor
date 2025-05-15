@@ -30,6 +30,7 @@
                 <RadioButton x:Name="LineButton" Content="Линия" Checked="LineButton_Checked"/>
                 <RadioButton x:Name="BezierButton" Content="Кривая Безье" Checked="BezierButton_Checked"/>
                 <RadioButton x:Name="PolylineButton" Content="Ломаная" Checked="PolylineButton_Checked"/>
+                <RadioButton x:Name="PolygonButton" Content="Многоугольник" Checked="PolygonButton_Checked"/>
                 <Separator/>
                 <Button Content="Удалить" Click="DeleteButton_Click"/>
             </ToolBar>
@@ -63,6 +64,15 @@
                     <ComboBoxItem Content="3"/>
                     <ComboBoxItem Content="4"/>
                     <ComboBoxItem Content="5"/>
+                </ComboBox>
+            </ToolBar>
+            <ToolBar>
+                <TextBlock Text="Углы многоугольника:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <ComboBox x:Name="PolygonSidesComboBox" Width="50" SelectionChanged="PolygonSidesComboBox_SelectionChanged">
+                    <ComboBoxItem Content="3"/>
+                    <ComboBoxItem Content="4"/>
+                    <ComboBoxItem Content="5"/>
+                    <ComboBoxItem Content="6"/>
                 </ComboBox>
             </ToolBar>
         </ToolBarTray>

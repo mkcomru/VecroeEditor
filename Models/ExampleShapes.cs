@@ -67,6 +67,17 @@ namespace VectorEditor.Models
             polyline.Points.Add(new Point(300, 330));
             examples.Add(polyline);
             
+            // Многоугольник
+            examples.Add(new PolygonShape
+            {
+                Position = new Point(400, 350),
+                Radius = 60,
+                Sides = 5,
+                Fill = Brushes.LightYellow,
+                Stroke = Brushes.Orange,
+                StrokeThickness = 2
+            });
+            
             return examples;
         }
     }

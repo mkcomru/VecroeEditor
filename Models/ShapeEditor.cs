@@ -34,6 +34,67 @@ namespace VectorEditor.Models
             
             if (CurrentMode == DrawingMode.Select)
             {
+                // Проверяем, выбрана ли уже какая-то фигура
+                if (SelectedShape != null)
+                {
+                    // Проверяем, нажат ли маркер изменения размера
+                    if (SelectedShape is RectangleShape rectangle)
+                    {
+                        rectangle.SelectResizeHandle(position);
+                        if (rectangle.SelectedResizeHandle != null)
+                        {
+                            editingRectangle = rectangle;
+                            startPoint = position;
+                            isDragging = true;
+                            return;
+                        }
+                    }
+                    else if (SelectedShape is EllipseShape ellipse)
+                    {
+                        ellipse.SelectResizeHandle(position);
+                        if (ellipse.SelectedResizeHandle != null)
+                        {
+                            editingEllipse = ellipse;
+                            startPoint = position;
+                            isDragging = true;
+                            return;
+                        }
+                    }
+                    else if (SelectedShape is LineShape line)
+                    {
+                        bool handleSelected = line.SelectHandle(position);
+                        if (handleSelected && line.SelectedHandle != LineShape.LineHandleType.None)
+                        {
+                            editingLine = line;
+                            startPoint = position;
+                            isDragging = true;
+                            return;
+                        }
+                    }
+                    else if (SelectedShape is BezierShape bezier)
+                    {
+                        bezier.SelectPoint(position);
+                        if (bezier.HasSelectedPoint)
+                        {
+                            editingBezier = bezier;
+                            startPoint = position;
+                            isDragging = true;
+                            return;
+                        }
+                    }
+                    else if (SelectedShape is PolygonShape polygon)
+                    {
+                        polygon.SelectResizeHandle(position);
+                        if (polygon.SelectedResizeHandle != null)
+                        {
+                            // Сохраняем начальную точку для изменения размера
+                            startPoint = position;
+                            isDragging = true;
+                            return;
+                        }
+                    }
+                }
+                
                 // Сбрасываем все редактируемые фигуры
                 editingBezier = null;
                 editingRectangle = null;
@@ -43,13 +104,13 @@ namespace VectorEditor.Models
                 // Проверка на выделение или выбор точки кривой Безье
                 Shape? newSelection = Shapes.LastOrDefault(s => s.Contains(position));
                 
-                if (SelectedShape is BezierShape bezier && bezier.IsSelected)
+                if (SelectedShape is BezierShape bezierCurve && bezierCurve.IsSelected)
                 {
                     // Проверяем, не выбрана ли точка кривой Безье
-                    bezier.SelectPoint(position);
-                    if (bezier.HasSelectedPoint)
+                    bezierCurve.SelectPoint(position);
+                    if (bezierCurve.HasSelectedPoint)
                     {
-                        editingBezier = bezier;
+                        editingBezier = bezierCurve;
                         isDragging = true;
                         startPoint = position;
                         return;
@@ -317,6 +378,18 @@ namespace VectorEditor.Models
                             startPoint.Y + (position.Y - startPoint.Y) * 2 / 3);
                     }
                     break;
+                    
+                case DrawingMode.Polygon:
+                    if (drawingShape is PolygonShape polygon)
+                    {
+                        // Вычисляем радиус на основе расстояния от центра до текущей позиции
+                        double distance = Math.Sqrt(
+                            Math.Pow(position.X - polygon.Position.X, 2) + 
+                            Math.Pow(position.Y - polygon.Position.Y, 2));
+                        
+                        polygon.Radius = distance;
+                    }
+                    break;
             }
         }
 
@@ -416,6 +489,14 @@ namespace VectorEditor.Models
             }
         }
 
+        public void ChangePolygonSides(int sides)
+        {
+            if (SelectedShape is PolygonShape polygon)
+            {
+                polygon.Sides = sides;
+            }
+        }
+
         public void DeleteSelectedShape()
         {
             if (SelectedShape != null)
@@ -440,6 +521,7 @@ namespace VectorEditor.Models
                     ControlPoint2 = position
                 },
                 DrawingMode.Polyline => new PolylineShape { Points = new List<Point> { position } },
+                DrawingMode.Polygon => new PolygonShape { Position = position, Radius = 0 },
                 _ => null
             };
         }
@@ -452,6 +534,7 @@ namespace VectorEditor.Models
         Ellipse,
         Line,
         Bezier,
-        Polyline
+        Polyline,
+        Polygon
     }
 } 
