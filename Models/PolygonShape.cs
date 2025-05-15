@@ -70,6 +70,16 @@ namespace VectorEditor.Models
                 double y = Position.Y + _radius * Math.Sin(angle);
                 _vertices.Add(new Point(x, y));
             }
+            
+            // Применяем поворот к вершинам, если угол не нулевой
+            if (RotationAngle != 0)
+            {
+                Point center = GetCenter();
+                for (int i = 0; i < _vertices.Count; i++)
+                {
+                    _vertices[i] = RotatePoint(_vertices[i], center, RotationAngle);
+                }
+            }
         }
         
         public void SelectResizeHandle(Point point)
@@ -78,6 +88,12 @@ namespace VectorEditor.Models
             selectedHandle = null;
             
             if (!IsSelected) return;
+            
+            // Проверяем маркер вращения
+            if (IsRotationHandleHit(point))
+            {
+                return;
+            }
             
             // Проверяем маркеры изменения размера
             var handles = GetResizeHandles();
@@ -190,6 +206,28 @@ namespace VectorEditor.Models
                         6, 6,
                         Colors.Black, false);
                 }
+                
+                // Рисуем маркер вращения (в центре верхней стороны)
+                Point center = GetCenter();
+                Point topPoint = new Point(center.X, center.Y - _radius - 15);
+                if (RotationAngle != 0)
+                {
+                    topPoint = RotatePoint(topPoint, center, RotationAngle);
+                }
+                
+                // Линия от центра к маркеру вращения
+                GraphicsAlgorithms.DrawLine(bitmap,
+                    (int)center.X, (int)center.Y,
+                    (int)topPoint.X, (int)topPoint.Y,
+                    Colors.Green);
+                
+                // Маркер вращения (круг)
+                GraphicsAlgorithms.DrawCircle(bitmap,
+                    (int)topPoint.X, (int)topPoint.Y,
+                    5, Colors.Green, true);
+                GraphicsAlgorithms.DrawCircle(bitmap,
+                    (int)topPoint.X, (int)topPoint.Y,
+                    5, Colors.Black, false);
             }
         }
         
@@ -204,6 +242,12 @@ namespace VectorEditor.Models
                     {
                         return true;
                     }
+                }
+                
+                // Проверяем маркер вращения
+                if (IsRotationHandleHit(point))
+                {
+                    return true;
                 }
             }
             
@@ -266,6 +310,36 @@ namespace VectorEditor.Models
             }
         }
         
+        // Получение центра многоугольника
+        public Point GetCenter()
+        {
+            return Position;
+        }
+        
+        // Проверка, находится ли точка в области маркера вращения
+        public bool IsRotationHandleHit(Point point)
+        {
+            if (!IsSelected) return false;
+            
+            Point center = GetCenter();
+            Point topPoint = new Point(center.X, center.Y - _radius - 15);
+            if (RotationAngle != 0)
+            {
+                topPoint = RotatePoint(topPoint, center, RotationAngle);
+            }
+            
+            return CalculateDistance(point, topPoint) <= 8;
+        }
+        
+        // Переопределяем метод вращения для пересчета вершин
+        public override void Rotate(double angleDelta)
+        {
+            base.Rotate(angleDelta);
+            
+            // Пересчитываем вершины с учетом нового угла поворота
+            CalculateVertices();
+        }
+        
         public override Shape Clone()
         {
             return new PolygonShape
@@ -275,7 +349,8 @@ namespace VectorEditor.Models
                 Sides = this._sides,
                 Fill = this.Fill,
                 Stroke = this.Stroke,
-                StrokeThickness = this.StrokeThickness
+                StrokeThickness = this.StrokeThickness,
+                RotationAngle = this.RotationAngle
             };
         }
     }

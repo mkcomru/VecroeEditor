@@ -14,6 +14,14 @@ namespace VectorEditor.Models
         
         // Флаг, указывающий, является ли ломаная замкнутой фигурой
         public bool IsClosed { get; set; } = false;
+        
+        // Точки ломаной до применения поворота
+        private List<Point> originalPoints = new List<Point>();
+        
+        // Выбранная точка для редактирования
+        private int selectedPointIndex = -1;
+        
+        public int SelectedPointIndex => selectedPointIndex;
 
         public override void Draw(WriteableBitmap bitmap)
         {
@@ -49,18 +57,42 @@ namespace VectorEditor.Models
             
             if (IsSelected)
             {
-                foreach (var point in Points)
+                // Рисуем маркеры в каждой точке ломаной
+                for (int i = 0; i < Points.Count; i++)
                 {
-                    // Рисуем маркеры в каждой точке ломаной
+                    var point = Points[i];
+                    Color handleColor = (i == selectedPointIndex) ? Colors.Red : Colors.Blue;
+                    
                     GraphicsAlgorithms.DrawRectangle(bitmap,
                         (int)(point.X - 3), (int)(point.Y - 3),
                         6, 6,
-                        Colors.Blue, true);
+                        handleColor, true);
                     
                     GraphicsAlgorithms.DrawRectangle(bitmap,
                         (int)(point.X - 3), (int)(point.Y - 3),
                         6, 6,
                         Colors.Black, false);
+                }
+                
+                // Рисуем маркер вращения, если есть хотя бы 2 точки
+                if (Points.Count >= 2)
+                {
+                    Point center = GetCenter();
+                    Point rotationHandlePos = GetRotationHandlePosition();
+                    
+                    // Линия от центра к маркеру вращения
+                    GraphicsAlgorithms.DrawLine(bitmap,
+                        (int)center.X, (int)center.Y,
+                        (int)rotationHandlePos.X, (int)rotationHandlePos.Y,
+                        Colors.Green);
+                    
+                    // Маркер вращения (круг)
+                    GraphicsAlgorithms.DrawCircle(bitmap,
+                        (int)rotationHandlePos.X, (int)rotationHandlePos.Y,
+                        5, Colors.Green, true);
+                    GraphicsAlgorithms.DrawCircle(bitmap,
+                        (int)rotationHandlePos.X, (int)rotationHandlePos.Y,
+                        5, Colors.Black, false);
                 }
             }
         }
@@ -68,6 +100,28 @@ namespace VectorEditor.Models
         public override bool Contains(Point point)
         {
             if (Points.Count < 2) return false;
+            
+            // Если выбрана, проверяем маркер вращения
+            if (IsSelected && IsRotationHandleHit(point))
+            {
+                return true;
+            }
+            
+            // Проверяем, не нажат ли один из маркеров точек
+            if (IsSelected)
+            {
+                for (int i = 0; i < Points.Count; i++)
+                {
+                    if (CalculateDistance(point, Points[i]) <= 10)
+                    {
+                        selectedPointIndex = i;
+                        return true;
+                    }
+                }
+                
+                // Если не нажат ни один маркер, сбрасываем выбор точки
+                selectedPointIndex = -1;
+            }
 
             // Если фигура замкнута и имеет заливку, проверяем, находится ли точка внутри многоугольника
             if (IsClosed && Points.Count >= 3)
@@ -145,11 +199,103 @@ namespace VectorEditor.Models
 
         public override void Move(Vector delta)
         {
+            // Если выбрана точка, перемещаем только её
+            if (selectedPointIndex >= 0 && selectedPointIndex < Points.Count)
+            {
+                Points[selectedPointIndex] = new Point(
+                    Points[selectedPointIndex].X + delta.X,
+                    Points[selectedPointIndex].Y + delta.Y);
+                
+                // Обновляем позицию всей фигуры, если это первая точка
+                if (selectedPointIndex == 0)
+                {
+                    Position = new Point(Position.X + delta.X, Position.Y + delta.Y);
+                }
+                
+                return;
+            }
+            
+            // Перемещаем все точки
             Position = new Point(Position.X + delta.X, Position.Y + delta.Y);
             
             for (int i = 0; i < Points.Count; i++)
             {
                 Points[i] = new Point(Points[i].X + delta.X, Points[i].Y + delta.Y);
+            }
+        }
+        
+        // Получение центра ломаной
+        public Point GetCenter()
+        {
+            if (Points.Count == 0)
+                return Position;
+                
+            double sumX = 0;
+            double sumY = 0;
+            
+            foreach (var point in Points)
+            {
+                sumX += point.X;
+                sumY += point.Y;
+            }
+            
+            return new Point(sumX / Points.Count, sumY / Points.Count);
+        }
+        
+        // Получение позиции маркера вращения
+        private Point GetRotationHandlePosition()
+        {
+            Point center = GetCenter();
+            
+            // Находим самую верхнюю точку
+            Point topPoint = Points.OrderBy(p => p.Y).First();
+            
+            // Создаем маркер вращения над самой верхней точкой
+            Point rotationHandlePos = new Point(center.X, topPoint.Y - 20);
+            
+            // Если есть поворот, применяем его к маркеру
+            if (RotationAngle != 0)
+            {
+                rotationHandlePos = RotatePoint(rotationHandlePos, center, RotationAngle);
+            }
+            
+            return rotationHandlePos;
+        }
+        
+        // Проверка, находится ли точка в области маркера вращения
+        public bool IsRotationHandleHit(Point point)
+        {
+            if (!IsSelected || Points.Count < 2) return false;
+            
+            Point rotationHandlePos = GetRotationHandlePosition();
+            return CalculateDistance(point, rotationHandlePos) <= 8;
+        }
+        
+        // Вычисление расстояния между двумя точками
+        private double CalculateDistance(Point p1, Point p2)
+        {
+            return Math.Sqrt(Math.Pow(p2.X - p1.X, 2) + Math.Pow(p2.Y - p1.Y, 2));
+        }
+        
+        // Переопределяем метод вращения для поворота всех точек
+        public override void Rotate(double angleDelta)
+        {
+            base.Rotate(angleDelta);
+            
+            // Сохраняем оригинальные точки при первом повороте
+            if (originalPoints.Count == 0 && Points.Count > 0)
+            {
+                originalPoints = Points.Select(p => new Point(p.X, p.Y)).ToList();
+            }
+            
+            // Поворачиваем все точки вокруг центра
+            Point center = GetCenter();
+            
+            for (int i = 0; i < Points.Count; i++)
+            {
+                // Если есть оригинальные точки, используем их как основу для поворота
+                Point basePoint = (originalPoints.Count > i) ? originalPoints[i] : Points[i];
+                Points[i] = RotatePoint(basePoint, center, RotationAngle);
             }
         }
 
@@ -162,7 +308,8 @@ namespace VectorEditor.Models
                 Fill = this.Fill,
                 StrokeThickness = this.StrokeThickness,
                 Points = this.Points.Select(p => new Point(p.X, p.Y)).ToList(),
-                IsClosed = this.IsClosed
+                IsClosed = this.IsClosed,
+                RotationAngle = this.RotationAngle
             };
         }
     }

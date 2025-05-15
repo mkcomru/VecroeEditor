@@ -155,27 +155,62 @@ namespace VectorEditor.Models
 
         public override void Draw(WriteableBitmap bitmap)
         {
-            // Рисуем заполненный прямоугольник
-            Color fillColor = GetColorFromBrush(Fill);
-            GraphicsAlgorithms.DrawRectangle(bitmap,
-                (int)Position.X, (int)Position.Y,
-                (int)Width, (int)Height,
-                fillColor, true);
-            
-            // Рисуем контур
-            Color strokeColor = GetColorFromBrush(Stroke);
-            GraphicsAlgorithms.DrawRectangle(bitmap,
-                (int)Position.X, (int)Position.Y,
-                (int)Width, (int)Height,
-                strokeColor, false);
-
-            if (IsSelected)
+            // Если нет поворота, используем обычную отрисовку прямоугольника
+            if (RotationAngle == 0)
             {
-                // Рисуем контур выделения
+                // Рисуем заполненный прямоугольник
+                Color fillColor = GetColorFromBrush(Fill);
                 GraphicsAlgorithms.DrawRectangle(bitmap,
                     (int)Position.X, (int)Position.Y,
                     (int)Width, (int)Height,
-                    Colors.Blue, false);
+                    fillColor, true);
+                
+                // Рисуем контур
+                Color strokeColor = GetColorFromBrush(Stroke);
+                GraphicsAlgorithms.DrawRectangle(bitmap,
+                    (int)Position.X, (int)Position.Y,
+                    (int)Width, (int)Height,
+                    strokeColor, false);
+            }
+            else
+            {
+                // Для повернутого прямоугольника используем полигон
+                Point[] vertices = GetRectangleVertices();
+                Point center = GetCenter();
+                Point[] rotatedVertices = RotatePoints(vertices, center, RotationAngle);
+                
+                // Рисуем заполненный многоугольник
+                Color fillColor = GetColorFromBrush(Fill);
+                GraphicsAlgorithms.DrawFilledPolygon(bitmap, rotatedVertices, fillColor);
+                
+                // Рисуем контур
+                Color strokeColor = GetColorFromBrush(Stroke);
+                for (int i = 0; i < rotatedVertices.Length; i++)
+                {
+                    int nextIndex = (i + 1) % rotatedVertices.Length;
+                    GraphicsAlgorithms.DrawLine(bitmap,
+                        (int)rotatedVertices[i].X, (int)rotatedVertices[i].Y,
+                        (int)rotatedVertices[nextIndex].X, (int)rotatedVertices[nextIndex].Y,
+                        strokeColor);
+                }
+            }
+
+            if (IsSelected)
+            {
+                // Получаем вершины прямоугольника
+                Point[] vertices = GetRectangleVertices();
+                Point center = GetCenter();
+                Point[] rotatedVertices = RotatePoints(vertices, center, RotationAngle);
+                
+                // Рисуем контур выделения
+                for (int i = 0; i < rotatedVertices.Length; i++)
+                {
+                    int nextIndex = (i + 1) % rotatedVertices.Length;
+                    GraphicsAlgorithms.DrawLine(bitmap,
+                        (int)rotatedVertices[i].X, (int)rotatedVertices[i].Y,
+                        (int)rotatedVertices[nextIndex].X, (int)rotatedVertices[nextIndex].Y,
+                        Colors.Blue);
+                }
                 
                 // Рисуем маркеры изменения размера
                 foreach (var handle in GetResizeHandles())
@@ -195,26 +230,82 @@ namespace VectorEditor.Models
                         6, 6,
                         Colors.Black, false);
                 }
+                
+                // Рисуем маркер вращения (в центре верхней стороны)
+                Point rotationHandle = RotatePoint(new Point(Position.X + Width / 2, Position.Y - 15), center, RotationAngle);
+                
+                // Линия от центра к маркеру вращения
+                Point topCenter = RotatePoint(new Point(Position.X + Width / 2, Position.Y), center, RotationAngle);
+                GraphicsAlgorithms.DrawLine(bitmap,
+                    (int)topCenter.X, (int)topCenter.Y,
+                    (int)rotationHandle.X, (int)rotationHandle.Y,
+                    Colors.Green);
+                
+                // Маркер вращения (круг)
+                GraphicsAlgorithms.DrawCircle(bitmap,
+                    (int)rotationHandle.X, (int)rotationHandle.Y,
+                    5, Colors.Green, true);
+                GraphicsAlgorithms.DrawCircle(bitmap,
+                    (int)rotationHandle.X, (int)rotationHandle.Y,
+                    5, Colors.Black, false);
             }
         }
 
         public override bool Contains(Point point)
         {
-            var rect = new Rect(Position, new Size(Width, Height));
-            
-            // Если выбран, проверяем также маркеры изменения размера
-            if (IsSelected)
+            // Если нет поворота, используем обычную проверку
+            if (RotationAngle == 0)
             {
-                foreach (var handle in GetResizeHandles())
+                var rect = new Rect(Position, new Size(Width, Height));
+                
+                // Если выбран, проверяем также маркеры изменения размера
+                if (IsSelected)
                 {
-                    if (CalculateDistance(point, handle.Position) <= 10)
+                    foreach (var handle in GetResizeHandles())
+                    {
+                        if (CalculateDistance(point, handle.Position) <= 10)
+                        {
+                            return true;
+                        }
+                    }
+                    
+                    // Проверяем маркер вращения
+                    if (IsRotationHandleHit(point))
                     {
                         return true;
                     }
                 }
+                
+                return rect.Contains(point);
             }
-            
-            return rect.Contains(point);
+            else
+            {
+                // Для повернутого прямоугольника проверяем, находится ли точка внутри многоугольника
+                Point[] vertices = GetRectangleVertices();
+                Point center = GetCenter();
+                Point[] rotatedVertices = RotatePoints(vertices, center, RotationAngle);
+                
+                // Если выбран, проверяем также маркеры изменения размера
+                if (IsSelected)
+                {
+                    foreach (var handle in GetResizeHandles())
+                    {
+                        if (CalculateDistance(point, handle.Position) <= 10)
+                        {
+                            return true;
+                        }
+                    }
+                    
+                    // Проверяем маркер вращения
+                    if (IsRotationHandleHit(point))
+                    {
+                        return true;
+                    }
+                }
+                
+                // Проверяем, находится ли точка внутри повернутого прямоугольника
+                return IsPointInPolygon(point, rotatedVertices);
+            }
         }
 
         public override void Move(Vector delta)
@@ -251,8 +342,77 @@ namespace VectorEditor.Models
                 Height = this.Height,
                 Fill = this.Fill,
                 Stroke = this.Stroke,
-                StrokeThickness = this.StrokeThickness
+                StrokeThickness = this.StrokeThickness,
+                RotationAngle = this.RotationAngle
             };
+        }
+        
+        public override ShapeData Serialize()
+        {
+            var data = base.Serialize();
+            data.Properties["Width"] = Width;
+            data.Properties["Height"] = Height;
+            return data;
+        }
+        
+        public override void Deserialize(ShapeData data)
+        {
+            base.Deserialize(data);
+            
+            if (data.Properties.ContainsKey("Width") && data.Properties["Width"] is double width)
+                Width = width;
+                
+            if (data.Properties.ContainsKey("Height") && data.Properties["Height"] is double height)
+                Height = height;
+        }
+
+        // Получение вершин прямоугольника
+        private Point[] GetRectangleVertices()
+        {
+            return new Point[]
+            {
+                Position, // Верхний левый
+                new Point(Position.X + Width, Position.Y), // Верхний правый
+                new Point(Position.X + Width, Position.Y + Height), // Нижний правый
+                new Point(Position.X, Position.Y + Height) // Нижний левый
+            };
+        }
+        
+        // Получение центра прямоугольника
+        public Point GetCenter()
+        {
+            return new Point(Position.X + Width / 2, Position.Y + Height / 2);
+        }
+        
+        // Проверка, находится ли точка в области маркера вращения
+        public bool IsRotationHandleHit(Point point)
+        {
+            if (!IsSelected) return false;
+            
+            Point center = GetCenter();
+            Point rotationHandlePos = RotatePoint(new Point(Position.X + Width / 2, Position.Y - 15), center, RotationAngle);
+            
+            return CalculateDistance(point, rotationHandlePos) <= 8;
+        }
+
+        // Метод для проверки, находится ли точка внутри многоугольника
+        private bool IsPointInPolygon(Point point, Point[] polygon)
+        {
+            if (polygon.Length < 3) return false;
+            
+            int i, j;
+            bool result = false;
+            for (i = 0, j = polygon.Length - 1; i < polygon.Length; j = i++)
+            {
+                if ((polygon[i].Y > point.Y) != (polygon[j].Y > point.Y) &&
+                    (point.X < (polygon[j].X - polygon[i].X) * (point.Y - polygon[i].Y) / 
+                    (polygon[j].Y - polygon[i].Y) + polygon[i].X))
+                {
+                    result = !result;
+                }
+            }
+            
+            return result;
         }
     }
 } 

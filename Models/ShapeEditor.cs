@@ -20,9 +20,18 @@ namespace VectorEditor.Models
         private RectangleShape? editingRectangle;
         private EllipseShape? editingEllipse;
         private LineShape? editingLine;
+        private PolygonShape? editingPolygon;
+        private PolylineShape? editingPolyline;
         
         // Переменная для хранения ломаной во время рисования
         private PolylineShape? tempPolyline;
+        
+        // Флаг, указывающий, что выполняется вращение
+        private bool isRotating;
+        // Начальный угол при вращении
+        private double startAngle;
+        // Центр вращения
+        private Point rotationCenter;
 
         public void StartDrawing(Point position, bool isShiftPressed)
         {
@@ -37,35 +46,87 @@ namespace VectorEditor.Models
                 // Проверяем, выбрана ли уже какая-то фигура
                 if (SelectedShape != null)
                 {
+                    // Проверяем, нажат ли маркер вращения для разных типов фигур
+                    if (SelectedShape is RectangleShape rectangle && rectangle.IsRotationHandleHit(position))
+                    {
+                        // Начинаем вращение
+                        isRotating = true;
+                        rotationCenter = rectangle.GetCenter();
+                        startAngle = CalculateAngle(position, rotationCenter);
+                        startPoint = position;
+                        isDragging = true;
+                        return;
+                    }
+                    else if (SelectedShape is EllipseShape ellipse && ellipse.IsRotationHandleHit(position))
+                    {
+                        // Начинаем вращение
+                        isRotating = true;
+                        rotationCenter = ellipse.Position;
+                        startAngle = CalculateAngle(position, rotationCenter);
+                        startPoint = position;
+                        isDragging = true;
+                        return;
+                    }
+                    else if (SelectedShape is LineShape line && line.IsRotationHandleHit(position))
+                    {
+                        // Начинаем вращение
+                        isRotating = true;
+                        rotationCenter = line.GetCenter();
+                        startAngle = CalculateAngle(position, rotationCenter);
+                        startPoint = position;
+                        isDragging = true;
+                        return;
+                    }
+                    else if (SelectedShape is PolygonShape polygon && polygon.IsRotationHandleHit(position))
+                    {
+                        // Начинаем вращение
+                        isRotating = true;
+                        rotationCenter = polygon.GetCenter();
+                        startAngle = CalculateAngle(position, rotationCenter);
+                        startPoint = position;
+                        isDragging = true;
+                        return;
+                    }
+                    else if (SelectedShape is PolylineShape polyline && polyline.IsRotationHandleHit(position))
+                    {
+                        // Начинаем вращение
+                        isRotating = true;
+                        rotationCenter = polyline.GetCenter();
+                        startAngle = CalculateAngle(position, rotationCenter);
+                        startPoint = position;
+                        isDragging = true;
+                        return;
+                    }
+                    
                     // Проверяем, нажат ли маркер изменения размера
-                    if (SelectedShape is RectangleShape rectangle)
+                    if (SelectedShape is RectangleShape rect)
                     {
-                        rectangle.SelectResizeHandle(position);
-                        if (rectangle.SelectedResizeHandle != null)
+                        rect.SelectResizeHandle(position);
+                        if (rect.SelectedResizeHandle != null)
                         {
-                            editingRectangle = rectangle;
+                            editingRectangle = rect;
                             startPoint = position;
                             isDragging = true;
                             return;
                         }
                     }
-                    else if (SelectedShape is EllipseShape ellipse)
+                    else if (SelectedShape is EllipseShape ellipseShape)
                     {
-                        ellipse.SelectResizeHandle(position);
-                        if (ellipse.SelectedResizeHandle != null)
+                        ellipseShape.SelectResizeHandle(position);
+                        if (ellipseShape.SelectedResizeHandle != null)
                         {
-                            editingEllipse = ellipse;
+                            editingEllipse = ellipseShape;
                             startPoint = position;
                             isDragging = true;
                             return;
                         }
                     }
-                    else if (SelectedShape is LineShape line)
+                    else if (SelectedShape is LineShape lineShape)
                     {
-                        bool handleSelected = line.SelectHandle(position);
-                        if (handleSelected && line.SelectedHandle != LineShape.LineHandleType.None)
+                        bool handleSelected = lineShape.SelectHandle(position);
+                        if (handleSelected && lineShape.SelectedHandle != LineShape.LineHandleType.None)
                         {
-                            editingLine = line;
+                            editingLine = lineShape;
                             startPoint = position;
                             isDragging = true;
                             return;
@@ -82,12 +143,24 @@ namespace VectorEditor.Models
                             return;
                         }
                     }
-                    else if (SelectedShape is PolygonShape polygon)
+                    else if (SelectedShape is PolygonShape polygonShape)
                     {
-                        polygon.SelectResizeHandle(position);
-                        if (polygon.SelectedResizeHandle != null)
+                        polygonShape.SelectResizeHandle(position);
+                        if (polygonShape.SelectedResizeHandle != null)
                         {
+                            editingPolygon = polygonShape;
                             // Сохраняем начальную точку для изменения размера
+                            startPoint = position;
+                            isDragging = true;
+                            return;
+                        }
+                    }
+                    else if (SelectedShape is PolylineShape polylineShape)
+                    {
+                        // Для PolylineShape точки уже проверяются в методе Contains
+                        if (polylineShape.SelectedPointIndex >= 0)
+                        {
+                            editingPolyline = polylineShape;
                             startPoint = position;
                             isDragging = true;
                             return;
@@ -95,11 +168,14 @@ namespace VectorEditor.Models
                     }
                 }
                 
-                // Сбрасываем все редактируемые фигуры
+                // Сбрасываем все редактируемые фигуры и флаг вращения
                 editingBezier = null;
                 editingRectangle = null;
                 editingEllipse = null;
                 editingLine = null;
+                editingPolygon = null;
+                editingPolyline = null;
+                isRotating = false;
                 
                 // Проверка на выделение или выбор точки кривой Безье
                 Shape? newSelection = Shapes.LastOrDefault(s => s.Contains(position));
@@ -127,6 +203,18 @@ namespace VectorEditor.Models
                         startPoint = position;
                         return;
                     }
+                    
+                    // Проверяем, не выбран ли маркер вращения
+                    if (rect.IsRotationHandleHit(position))
+                    {
+                        // Начинаем вращение
+                        isRotating = true;
+                        rotationCenter = rect.GetCenter();
+                        startAngle = CalculateAngle(position, rotationCenter);
+                        isDragging = true;
+                        startPoint = position;
+                        return;
+                    }
                 }
                 else if (SelectedShape is EllipseShape ellipse && ellipse.IsSelected)
                 {
@@ -139,6 +227,18 @@ namespace VectorEditor.Models
                         startPoint = position;
                         return;
                     }
+                    
+                    // Проверяем, не выбран ли маркер вращения
+                    if (ellipse.IsRotationHandleHit(position))
+                    {
+                        // Начинаем вращение
+                        isRotating = true;
+                        rotationCenter = ellipse.Position;
+                        startAngle = CalculateAngle(position, rotationCenter);
+                        isDragging = true;
+                        startPoint = position;
+                        return;
+                    }
                 }
                 else if (SelectedShape is LineShape line && line.IsSelected)
                 {
@@ -147,6 +247,65 @@ namespace VectorEditor.Models
                     if (handleSelected && line.SelectedHandle != LineShape.LineHandleType.None)
                     {
                         editingLine = line;
+                        isDragging = true;
+                        startPoint = position;
+                        return;
+                    }
+                    
+                    // Проверяем, не выбран ли маркер вращения
+                    if (line.IsRotationHandleHit(position))
+                    {
+                        // Начинаем вращение
+                        isRotating = true;
+                        rotationCenter = line.GetCenter();
+                        startAngle = CalculateAngle(position, rotationCenter);
+                        isDragging = true;
+                        startPoint = position;
+                        return;
+                    }
+                }
+                else if (SelectedShape is PolygonShape polygon && polygon.IsSelected)
+                {
+                    // Проверяем, не выбран ли маркер изменения размера
+                    polygon.SelectResizeHandle(position);
+                    if (polygon.SelectedResizeHandle != null)
+                    {
+                        editingPolygon = polygon;
+                        isDragging = true;
+                        startPoint = position;
+                        return;
+                    }
+                    
+                    // Проверяем, не выбран ли маркер вращения
+                    if (polygon.IsRotationHandleHit(position))
+                    {
+                        // Начинаем вращение
+                        isRotating = true;
+                        rotationCenter = polygon.GetCenter();
+                        startAngle = CalculateAngle(position, rotationCenter);
+                        isDragging = true;
+                        startPoint = position;
+                        return;
+                    }
+                }
+                else if (SelectedShape is PolylineShape polyline && polyline.IsSelected)
+                {
+                    // Для PolylineShape проверка точек уже выполнена в методе Contains
+                    if (polyline.SelectedPointIndex >= 0)
+                    {
+                        editingPolyline = polyline;
+                        isDragging = true;
+                        startPoint = position;
+                        return;
+                    }
+                    
+                    // Проверяем, не выбран ли маркер вращения
+                    if (polyline.IsRotationHandleHit(position))
+                    {
+                        // Начинаем вращение
+                        isRotating = true;
+                        rotationCenter = polyline.GetCenter();
+                        startAngle = CalculateAngle(position, rotationCenter);
                         isDragging = true;
                         startPoint = position;
                         return;
@@ -186,6 +345,10 @@ namespace VectorEditor.Models
                         else if (shape is LineShape lineShape)
                         {
                             lineShape.ClearHandleSelection();
+                        }
+                        else if (shape is PolygonShape polygonShape)
+                        {
+                            polygonShape.ClearResizeHandleSelection();
                         }
                     }
                     SelectedShape = null;
@@ -230,7 +393,25 @@ namespace VectorEditor.Models
         {
             if (CurrentMode == DrawingMode.Select && isDragging)
             {
-                if (editingBezier != null && editingBezier.HasSelectedPoint)
+                if (isRotating && SelectedShape != null)
+                {
+                    // Вращение фигуры
+                    double currentAngle = CalculateAngle(position, rotationCenter);
+                    double angleDelta = currentAngle - startAngle;
+                    
+                    // Если нажата клавиша Shift, ограничиваем вращение до 15-градусных шагов
+                    if (isShiftPressed)
+                    {
+                        angleDelta = Math.Round(angleDelta / 15.0) * 15.0;
+                    }
+                    
+                    if (angleDelta != 0)
+                    {
+                        SelectedShape.Rotate(angleDelta);
+                        startAngle = CalculateAngle(position, rotationCenter);
+                    }
+                }
+                else if (editingBezier != null && editingBezier.HasSelectedPoint)
                 {
                     // Перетаскивание точки кривой Безье
                     editingBezier.MoveSelectedPoint(position);
@@ -249,6 +430,18 @@ namespace VectorEditor.Models
                 {
                     // Изменение размера/поворот линии
                     editingLine.ResizeLine(position, isShiftPressed);
+                }
+                else if (editingPolygon != null && editingPolygon.SelectedResizeHandle != null)
+                {
+                    // Изменение размера многоугольника
+                    editingPolygon.Resize(position, isShiftPressed);
+                }
+                else if (editingPolyline != null && editingPolyline.SelectedPointIndex >= 0)
+                {
+                    // Перемещение точки ломаной
+                    Vector delta = new Vector(position.X - startPoint.X, position.Y - startPoint.Y);
+                    editingPolyline.Move(delta);
+                    startPoint = position;
                 }
                 else if (SelectedShape != null)
                 {
@@ -398,11 +591,22 @@ namespace VectorEditor.Models
             if (CurrentMode == DrawingMode.Select)
             {
                 isDragging = false;
+                isRotating = false;
                 // Применяем финальные изменения при редактировании
-                if (editingLine != null || editingBezier != null || editingRectangle != null || editingEllipse != null)
+                if (editingLine != null || editingBezier != null || editingRectangle != null || 
+                    editingEllipse != null || editingPolygon != null || editingPolyline != null)
                 {
                     ContinueDrawing(position, isShiftPressed);
                 }
+                
+                // Сбрасываем все редактируемые фигуры
+                editingBezier = null;
+                editingRectangle = null;
+                editingEllipse = null;
+                editingLine = null;
+                editingPolygon = null;
+                editingPolyline = null;
+                
                 return;
             }
             
@@ -540,6 +744,25 @@ namespace VectorEditor.Models
                 DrawingMode.Polygon => new PolygonShape { Position = position, Radius = 0 },
                 _ => null
             };
+        }
+
+        // Вычисляет угол между вертикалью и линией от центра к точке
+        private double CalculateAngle(Point point, Point center)
+        {
+            double deltaX = point.X - center.X;
+            double deltaY = point.Y - center.Y;
+            
+            // Угол в радианах
+            double angleRadians = Math.Atan2(deltaX, -deltaY);
+            
+            // Преобразуем в градусы
+            double angleDegrees = angleRadians * 180.0 / Math.PI;
+            
+            // Нормализуем угол от 0 до 360 градусов
+            if (angleDegrees < 0)
+                angleDegrees += 360.0;
+                
+            return angleDegrees;
         }
     }
 

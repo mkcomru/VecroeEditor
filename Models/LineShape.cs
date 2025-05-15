@@ -13,6 +13,11 @@ namespace VectorEditor.Models
         // Выбранная точка для изменения размера/поворота
         public enum LineHandleType { Start, End, None }
         public LineHandleType SelectedHandle { get; private set; } = LineHandleType.None;
+        
+        // Сохраняем оригинальные точки для поворота
+        private Point originalStartPoint;
+        private Point originalEndPoint;
+        private bool hasOriginalPoints = false;
 
         public override void Draw(WriteableBitmap bitmap)
         {
@@ -52,11 +57,35 @@ namespace VectorEditor.Models
                     (int)(EndPoint.X - 4), (int)(EndPoint.Y - 4),
                     8, 8,
                     Colors.Green, false);
+                
+                // Рисуем маркер вращения (в центре линии)
+                Point center = GetCenter();
+                Point rotationHandlePos = GetRotationHandlePosition();
+                
+                // Линия от центра к маркеру вращения
+                GraphicsAlgorithms.DrawLine(bitmap,
+                    (int)center.X, (int)center.Y,
+                    (int)rotationHandlePos.X, (int)rotationHandlePos.Y,
+                    Colors.Green);
+                
+                // Маркер вращения (круг)
+                GraphicsAlgorithms.DrawCircle(bitmap,
+                    (int)rotationHandlePos.X, (int)rotationHandlePos.Y,
+                    5, Colors.Green, true);
+                GraphicsAlgorithms.DrawCircle(bitmap,
+                    (int)rotationHandlePos.X, (int)rotationHandlePos.Y,
+                    5, Colors.Black, false);
             }
         }
 
         public override bool Contains(Point point)
         {
+            // Проверяем, не нажат ли маркер вращения
+            if (IsSelected && IsRotationHandleHit(point))
+            {
+                return true;
+            }
+            
             const double threshold = 5.0;
             
             double length = Math.Sqrt(Math.Pow(EndPoint.X - Position.X, 2) + Math.Pow(EndPoint.Y - Position.Y, 2));
@@ -87,7 +116,8 @@ namespace VectorEditor.Models
                 Position = this.Position,
                 EndPoint = this.EndPoint,
                 Stroke = this.Stroke,
-                StrokeThickness = this.StrokeThickness
+                StrokeThickness = this.StrokeThickness,
+                RotationAngle = this.RotationAngle
             };
         }
         
@@ -176,6 +206,72 @@ namespace VectorEditor.Models
                 basePoint.X + length * Math.Cos(snappedAngle),
                 basePoint.Y + length * Math.Sin(snappedAngle)
             );
+        }
+        
+        // Получение центра линии
+        public Point GetCenter()
+        {
+            return new Point(
+                (Position.X + EndPoint.X) / 2,
+                (Position.Y + EndPoint.Y) / 2
+            );
+        }
+        
+        // Получение позиции маркера вращения
+        private Point GetRotationHandlePosition()
+        {
+            Point center = GetCenter();
+            
+            // Вычисляем вектор, перпендикулярный линии
+            double dx = EndPoint.X - Position.X;
+            double dy = EndPoint.Y - Position.Y;
+            
+            // Перпендикулярный вектор (-dy, dx)
+            double perpDx = -dy;
+            double perpDy = dx;
+            
+            // Нормализуем вектор и задаем длину
+            double length = Math.Sqrt(perpDx * perpDx + perpDy * perpDy);
+            double normalizedPerpDx = perpDx / length * 20; // 20 - расстояние до маркера
+            double normalizedPerpDy = perpDy / length * 20;
+            
+            // Создаем точку маркера вращения
+            Point rotationHandlePos = new Point(
+                center.X + normalizedPerpDx,
+                center.Y + normalizedPerpDy
+            );
+            
+            return rotationHandlePos;
+        }
+        
+        // Проверка, находится ли точка в области маркера вращения
+        public bool IsRotationHandleHit(Point point)
+        {
+            if (!IsSelected) return false;
+            
+            Point rotationHandlePos = GetRotationHandlePosition();
+            return Distance(point, rotationHandlePos) <= 8;
+        }
+        
+        // Переопределяем метод вращения для поворота линии
+        public override void Rotate(double angleDelta)
+        {
+            base.Rotate(angleDelta);
+            
+            // Сохраняем оригинальные точки при первом повороте
+            if (!hasOriginalPoints)
+            {
+                originalStartPoint = Position;
+                originalEndPoint = EndPoint;
+                hasOriginalPoints = true;
+            }
+            
+            // Поворачиваем обе точки вокруг центра
+            Point center = GetCenter();
+            
+            // Поворачиваем точки относительно центра с учетом полного угла поворота
+            Position = RotatePoint(originalStartPoint, center, RotationAngle);
+            EndPoint = RotatePoint(originalEndPoint, center, RotationAngle);
         }
     }
 } 
