@@ -641,6 +641,8 @@ namespace VectorEditor.Models
                 if (editingPolyline != null)
                 {
                     editingPolyline.ClearPointSelection();
+                    // Сбрасываем оригинальные точки для корректного поворота
+                    editingPolyline.ResetOriginalPoints();
                     editingPolyline = null;
                 }
                 

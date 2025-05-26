@@ -201,6 +201,19 @@ namespace VectorEditor.Models
         public void ClearPointSelection()
         {
             selectedPointIndex = -1;
+            
+            // Если угол поворота не нулевой, сохраняем текущие точки как оригинальные
+            if (RotationAngle != 0)
+            {
+                ResetOriginalPoints();
+            }
+        }
+        
+        // Метод для сброса оригинальных точек
+        public void ResetOriginalPoints()
+        {
+            // Сохраняем текущие точки как оригинальные
+            originalPoints = Points.Select(p => new Point(p.X, p.Y)).ToList();
         }
 
         public override void Move(Vector delta)
@@ -218,10 +231,12 @@ namespace VectorEditor.Models
                     Position = new Point(Position.X + delta.X, Position.Y + delta.Y);
                 }
                 
-                // Обновляем оригинальные точки, если они существуют
-                if (originalPoints.Count > 0 && selectedPointIndex < originalPoints.Count)
+                // Сбрасываем оригинальные точки, так как форма изменилась
+                if (RotationAngle != 0)
                 {
-                    originalPoints[selectedPointIndex] = Points[selectedPointIndex];
+                    // Если фигура была повернута, сбрасываем оригинальные точки
+                    // чтобы они были заново созданы при следующем повороте
+                    originalPoints.Clear();
                 }
                 
                 return;
@@ -301,21 +316,29 @@ namespace VectorEditor.Models
         // Переопределяем метод вращения для поворота всех точек
         public override void Rotate(double angleDelta)
         {
-            // Сохраняем текущий угол
             double oldAngle = RotationAngle;
             
             // Обновляем общий угол поворота
             base.Rotate(angleDelta);
             
-            // Сохраняем оригинальные точки при первом повороте
-            if (originalPoints.Count == 0 && Points.Count > 0)
+            // Если это первый поворот или угол был сброшен до 0 и снова начинается поворот
+            if ((oldAngle == 0 && RotationAngle != 0) || originalPoints.Count == 0 || originalPoints.Count != Points.Count)
             {
+                // Сохраняем текущие точки как оригинальные
                 originalPoints = Points.Select(p => new Point(p.X, p.Y)).ToList();
             }
-            else if (originalPoints.Count != Points.Count)
+            
+            // Если угол стал равен 0, восстанавливаем оригинальные точки и очищаем список
+            if (RotationAngle == 0 && originalPoints.Count > 0)
             {
-                // Если количество точек изменилось, обновляем оригинальные точки
-                originalPoints = Points.Select(p => new Point(p.X, p.Y)).ToList();
+                // Восстанавливаем оригинальные точки
+                for (int i = 0; i < Points.Count && i < originalPoints.Count; i++)
+                {
+                    Points[i] = new Point(originalPoints[i].X, originalPoints[i].Y);
+                }
+                // Очищаем список оригинальных точек
+                originalPoints.Clear();
+                return;
             }
             
             // Поворачиваем все точки вокруг центра
@@ -341,13 +364,20 @@ namespace VectorEditor.Models
                 StrokeThickness = this.StrokeThickness,
                 Points = this.Points.Select(p => new Point(p.X, p.Y)).ToList(),
                 IsClosed = this.IsClosed,
-                RotationAngle = this.RotationAngle
+                RotationAngle = this.RotationAngle,
+                IsSelected = this.IsSelected
             };
             
             // Копируем оригинальные точки, если они есть
             if (this.originalPoints.Count > 0)
             {
                 clone.originalPoints = this.originalPoints.Select(p => new Point(p.X, p.Y)).ToList();
+            }
+            
+            // Копируем индекс выбранной точки
+            if (this.selectedPointIndex >= 0 && this.selectedPointIndex < clone.Points.Count)
+            {
+                clone.selectedPointIndex = this.selectedPointIndex;
             }
             
             return clone;
