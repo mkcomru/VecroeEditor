@@ -23,7 +23,7 @@ namespace VectorEditor.Models
             
             if (!IsSelected) return;
             
-            // Проверяем углы прямоугольника
+            // Проверяем углы прямоугольника с учетом поворота
             var handles = GetResizeHandles();
             foreach (var handle in handles)
             {
@@ -42,13 +42,26 @@ namespace VectorEditor.Models
         
         public ResizeHandle[] GetResizeHandles()
         {
-            return new[]
+            // Получаем базовые позиции маркеров
+            var handles = new[]
             {
                 new ResizeHandle { Position = Position, Type = ResizeHandleType.TopLeft },
                 new ResizeHandle { Position = new Point(Position.X + Width, Position.Y), Type = ResizeHandleType.TopRight },
                 new ResizeHandle { Position = new Point(Position.X, Position.Y + Height), Type = ResizeHandleType.BottomLeft },
                 new ResizeHandle { Position = new Point(Position.X + Width, Position.Y + Height), Type = ResizeHandleType.BottomRight }
             };
+            
+            // Если есть поворот, поворачиваем маркеры вокруг центра прямоугольника
+            if (RotationAngle != 0)
+            {
+                Point center = GetCenter();
+                for (int i = 0; i < handles.Length; i++)
+                {
+                    handles[i].Position = RotatePoint(handles[i].Position, center, RotationAngle);
+                }
+            }
+            
+            return handles;
         }
         
         private double CalculateDistance(Point p1, Point p2)
@@ -60,13 +73,23 @@ namespace VectorEditor.Models
         {
             if (selectedHandle == null) return;
             
+            // Если прямоугольник повернут, сначала преобразуем точку newPosition
+            // в координаты относительно повернутого прямоугольника
+            Point transformedPosition = newPosition;
+            if (RotationAngle != 0)
+            {
+                Point center = GetCenter();
+                // Применяем обратный поворот к точке, чтобы получить её положение относительно неповернутого прямоугольника
+                transformedPosition = RotatePoint(newPosition, center, -RotationAngle);
+            }
+            
             double aspectRatio = Width / Height;
             
             switch (selectedHandle.Type)
             {
                 case ResizeHandleType.TopLeft:
-                    double newWidth = Position.X + Width - newPosition.X;
-                    double newHeight = Position.Y + Height - newPosition.Y;
+                    double newWidth = Position.X + Width - transformedPosition.X;
+                    double newHeight = Position.Y + Height - transformedPosition.Y;
                     
                     if (maintainAspectRatio)
                     {
@@ -86,8 +109,8 @@ namespace VectorEditor.Models
                     break;
                     
                 case ResizeHandleType.TopRight:
-                    newWidth = newPosition.X - Position.X;
-                    newHeight = Position.Y + Height - newPosition.Y;
+                    newWidth = transformedPosition.X - Position.X;
+                    newHeight = Position.Y + Height - transformedPosition.Y;
                     
                     if (maintainAspectRatio)
                     {
@@ -107,8 +130,8 @@ namespace VectorEditor.Models
                     break;
                     
                 case ResizeHandleType.BottomLeft:
-                    newWidth = Position.X + Width - newPosition.X;
-                    newHeight = newPosition.Y - Position.Y;
+                    newWidth = Position.X + Width - transformedPosition.X;
+                    newHeight = transformedPosition.Y - Position.Y;
                     
                     if (maintainAspectRatio)
                     {
@@ -128,8 +151,8 @@ namespace VectorEditor.Models
                     break;
                     
                 case ResizeHandleType.BottomRight:
-                    newWidth = newPosition.X - Position.X;
-                    newHeight = newPosition.Y - Position.Y;
+                    newWidth = transformedPosition.X - Position.X;
+                    newHeight = transformedPosition.Y - Position.Y;
                     
                     if (maintainAspectRatio)
                     {
@@ -253,11 +276,6 @@ namespace VectorEditor.Models
 
         public override bool Contains(Point point)
         {
-            // Если нет поворота, используем обычную проверку
-            if (RotationAngle == 0)
-        {
-            var rect = new Rect(Position, new Size(Width, Height));
-            
             // Если выбран, проверяем также маркеры изменения размера
             if (IsSelected)
             {
@@ -269,14 +287,18 @@ namespace VectorEditor.Models
                     }
                 }
                     
-                    // Проверяем маркер вращения
-                    if (IsRotationHandleHit(point))
-                    {
-                        return true;
-                    }
+                // Проверяем маркер вращения
+                if (IsRotationHandleHit(point))
+                {
+                    return true;
+                }
             }
             
-            return rect.Contains(point);
+            // Если нет поворота, используем обычную проверку
+            if (RotationAngle == 0)
+            {
+                var rect = new Rect(Position, new Size(Width, Height));
+                return rect.Contains(point);
             }
             else
             {
@@ -284,24 +306,6 @@ namespace VectorEditor.Models
                 Point[] vertices = GetRectangleVertices();
                 Point center = GetCenter();
                 Point[] rotatedVertices = RotatePoints(vertices, center, RotationAngle);
-                
-                // Если выбран, проверяем также маркеры изменения размера
-                if (IsSelected)
-                {
-                    foreach (var handle in GetResizeHandles())
-                    {
-                        if (CalculateDistance(point, handle.Position) <= 10)
-                        {
-                            return true;
-                        }
-                    }
-                    
-                    // Проверяем маркер вращения
-                    if (IsRotationHandleHit(point))
-                    {
-                        return true;
-                    }
-                }
                 
                 // Проверяем, находится ли точка внутри повернутого прямоугольника
                 return IsPointInPolygon(point, rotatedVertices);
@@ -317,14 +321,24 @@ namespace VectorEditor.Models
                     selectedHandle.Position.X + delta.X,
                     selectedHandle.Position.Y + delta.Y
                 );
+                
+                // Вызываем Resize с новой позицией
                 Resize(newPosition);
                 
-                // Обновляем позицию маркера
-                selectedHandle = new ResizeHandle
+                // Обновляем позицию маркера с учетом поворота
+                var handles = GetResizeHandles();
+                foreach (var handle in handles)
                 {
-                    Type = selectedHandle.Type,
-                    Position = newPosition
-                };
+                    if (handle.Type == selectedHandle.Type)
+                    {
+                        selectedHandle = new ResizeHandle
+                        {
+                            Type = selectedHandle.Type,
+                            Position = handle.Position
+                        };
+                        break;
+                    }
+                }
             }
             else
             {
