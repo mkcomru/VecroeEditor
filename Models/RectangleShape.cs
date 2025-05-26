@@ -255,28 +255,28 @@ namespace VectorEditor.Models
         {
             // Если нет поворота, используем обычную проверку
             if (RotationAngle == 0)
+        {
+            var rect = new Rect(Position, new Size(Width, Height));
+            
+            // Если выбран, проверяем также маркеры изменения размера
+            if (IsSelected)
             {
-                var rect = new Rect(Position, new Size(Width, Height));
-                
-                // Если выбран, проверяем также маркеры изменения размера
-                if (IsSelected)
+                foreach (var handle in GetResizeHandles())
                 {
-                    foreach (var handle in GetResizeHandles())
+                    if (CalculateDistance(point, handle.Position) <= 10)
                     {
-                        if (CalculateDistance(point, handle.Position) <= 10)
-                        {
-                            return true;
-                        }
+                        return true;
                     }
+                }
                     
                     // Проверяем маркер вращения
                     if (IsRotationHandleHit(point))
                     {
                         return true;
                     }
-                }
-                
-                return rect.Contains(point);
+            }
+            
+            return rect.Contains(point);
             }
             else
             {

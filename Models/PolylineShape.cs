@@ -197,6 +197,12 @@ namespace VectorEditor.Models
             IsClosed = false;
         }
 
+        // Метод для сброса выбранной точки
+        public void ClearPointSelection()
+        {
+            selectedPointIndex = -1;
+        }
+
         public override void Move(Vector delta)
         {
             // Если выбрана точка, перемещаем только её
@@ -212,6 +218,12 @@ namespace VectorEditor.Models
                     Position = new Point(Position.X + delta.X, Position.Y + delta.Y);
                 }
                 
+                // Обновляем оригинальные точки, если они существуют
+                if (originalPoints.Count > 0 && selectedPointIndex < originalPoints.Count)
+                {
+                    originalPoints[selectedPointIndex] = Points[selectedPointIndex];
+                }
+                
                 return;
             }
             
@@ -221,6 +233,15 @@ namespace VectorEditor.Models
             for (int i = 0; i < Points.Count; i++)
             {
                 Points[i] = new Point(Points[i].X + delta.X, Points[i].Y + delta.Y);
+            }
+            
+            // Обновляем оригинальные точки, если они существуют
+            if (originalPoints.Count > 0)
+            {
+                for (int i = 0; i < originalPoints.Count; i++)
+                {
+                    originalPoints[i] = new Point(originalPoints[i].X + delta.X, originalPoints[i].Y + delta.Y);
+                }
             }
         }
         
@@ -280,11 +301,20 @@ namespace VectorEditor.Models
         // Переопределяем метод вращения для поворота всех точек
         public override void Rotate(double angleDelta)
         {
+            // Сохраняем текущий угол
+            double oldAngle = RotationAngle;
+            
+            // Обновляем общий угол поворота
             base.Rotate(angleDelta);
             
             // Сохраняем оригинальные точки при первом повороте
             if (originalPoints.Count == 0 && Points.Count > 0)
             {
+                originalPoints = Points.Select(p => new Point(p.X, p.Y)).ToList();
+            }
+            else if (originalPoints.Count != Points.Count)
+            {
+                // Если количество точек изменилось, обновляем оригинальные точки
                 originalPoints = Points.Select(p => new Point(p.X, p.Y)).ToList();
             }
             
@@ -293,15 +323,17 @@ namespace VectorEditor.Models
             
             for (int i = 0; i < Points.Count; i++)
             {
-                // Если есть оригинальные точки, используем их как основу для поворота
-                Point basePoint = (originalPoints.Count > i) ? originalPoints[i] : Points[i];
-                Points[i] = RotatePoint(basePoint, center, RotationAngle);
+                // Используем оригинальные точки и поворачиваем их на полный угол
+                if (i < originalPoints.Count)
+                {
+                    Points[i] = RotatePoint(originalPoints[i], center, RotationAngle);
+                }
             }
         }
 
         public override Shape Clone()
         {
-            return new PolylineShape
+            var clone = new PolylineShape
             {
                 Position = this.Position,
                 Stroke = this.Stroke,
@@ -311,6 +343,14 @@ namespace VectorEditor.Models
                 IsClosed = this.IsClosed,
                 RotationAngle = this.RotationAngle
             };
+            
+            // Копируем оригинальные точки, если они есть
+            if (this.originalPoints.Count > 0)
+            {
+                clone.originalPoints = this.originalPoints.Select(p => new Point(p.X, p.Y)).ToList();
+            }
+            
+            return clone;
         }
     }
 } 

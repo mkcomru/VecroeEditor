@@ -14,7 +14,7 @@ namespace VectorEditor.Models
         public Brush Stroke { get; set; } = Brushes.Black;
         public double StrokeThickness { get; set; } = 1.0;
         public bool IsSelected { get; set; }
-        
+
         // Угол поворота в градусах
         public double RotationAngle { get; set; } = 0.0;
 

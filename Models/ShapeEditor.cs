@@ -157,12 +157,24 @@ namespace VectorEditor.Models
                     }
                     else if (SelectedShape is PolylineShape polylineShape)
                     {
-                        // Для PolylineShape точки уже проверяются в методе Contains
+                        // Для PolylineShape проверка точек уже выполнена в методе Contains
                         if (polylineShape.SelectedPointIndex >= 0)
                         {
                             editingPolyline = polylineShape;
-                            startPoint = position;
                             isDragging = true;
+                            startPoint = position;
+                            return;
+                        }
+                        
+                        // Проверяем, не выбран ли маркер вращения
+                        if (polylineShape.IsRotationHandleHit(position))
+                        {
+                            // Начинаем вращение
+                            isRotating = true;
+                            rotationCenter = polylineShape.GetCenter();
+                            startAngle = CalculateAngle(position, rotationCenter);
+                            isDragging = true;
+                            startPoint = position;
                             return;
                         }
                     }
@@ -601,11 +613,36 @@ namespace VectorEditor.Models
                 
                 // Сбрасываем все редактируемые фигуры
                 editingBezier = null;
-                editingRectangle = null;
-                editingEllipse = null;
-                editingLine = null;
-                editingPolygon = null;
-                editingPolyline = null;
+                
+                if (editingRectangle != null)
+                {
+                    editingRectangle.ClearResizeHandleSelection();
+                    editingRectangle = null;
+                }
+                
+                if (editingEllipse != null)
+                {
+                    editingEllipse.ClearResizeHandleSelection();
+                    editingEllipse = null;
+                }
+                
+                if (editingLine != null)
+                {
+                    editingLine.ClearHandleSelection();
+                    editingLine = null;
+                }
+                
+                if (editingPolygon != null)
+                {
+                    editingPolygon.ClearResizeHandleSelection();
+                    editingPolygon = null;
+                }
+                
+                if (editingPolyline != null)
+                {
+                    editingPolyline.ClearPointSelection();
+                    editingPolyline = null;
+                }
                 
                 return;
             }
